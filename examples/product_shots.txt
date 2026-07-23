@@ -1,0 +1,7 @@
+# One line = one prompt. Lines starting with '#' are ignored.
+# Keep the exact product; change only scene, lighting, background, camera angle.
+Premium studio product photo on warm beige background, soft shadows, hero angle, preserve exact product label and proportions.
+Outdoor lifestyle product shot on wet stone surface after rain, cinematic dusk lighting, preserve the exact bottle design.
+E-commerce white background packshot, 85mm lens, high-end catalog lighting, preserve product geometry and logo.
+Reflective black acrylic surface, dramatic rim light, luxury feel, keep the product identical.
+Minimal pastel studio scene, soft shadows, top-down flat-lay, preserve label text and colors.

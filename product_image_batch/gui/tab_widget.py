@@ -109,6 +109,7 @@ class TabRunController(QWidget):
         # Action buttons.
         actions = QHBoxLayout()
         self.start_btn = QPushButton("▶ Start this tab")
+        self.start_btn.setObjectName("primary")
         self.start_btn.clicked.connect(self.start)
         actions.addWidget(self.start_btn)
         self.stop_btn = QPushButton("■ Stop")

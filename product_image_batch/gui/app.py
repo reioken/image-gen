@@ -52,6 +52,13 @@ def main() -> int:
     app.setApplicationName("Product Image Batch")
     app.setOrganizationName("ProductImageBatch")
 
+    try:
+        from product_image_batch.gui.theme import apply_theme
+
+        apply_theme(app)
+    except Exception:  # noqa: BLE001 — theme is cosmetic; never block startup
+        pass
+
     window = MainWindow()
     window.show()
     return app.exec()

@@ -2,6 +2,23 @@
    Self-contained (no external fonts/CDNs). Dark-first, glassmorphism,
    gradient accents, soft motion. Light mode via prefers-color-scheme. */
 
+/* ==========================================================================
+   BRANDING — change these 4 values to match your brand, everything follows.
+   --accent   : solid accent (focus rings, links, active states)
+   --grad     : the 2–3 stop gradient (logo, primary buttons, progress bars)
+   --grad-soft: a faint tint of the gradient (pills, drag state)
+   Presets (copy one over the block below):
+     · Indigo/Cyan (default): #7c8cff  |  135deg #6366f1, #8b5cf6, #22d3ee
+     · Emerald:               #34d399  |  135deg #059669, #10b981, #34d399
+     · Sunset:                #fb7185  |  135deg #f43f5e, #fb7185, #f59e0b
+     · Mono/Slate:            #94a3b8  |  135deg #64748b, #94a3b8, #cbd5e1
+   ========================================================================== */
+:root {
+  --accent: #7c8cff;
+  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
+  --grad-soft: linear-gradient(135deg, rgba(99,102,241,.22), rgba(34,211,238,.16));
+}
+
 :root {
   --bg: #08090d;
   --bg-2: #0c0e14;
@@ -13,11 +30,9 @@
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
   --field: rgba(255, 255, 255, 0.04);
-  --accent: #7c8cff;
+  /* --accent / --grad / --grad-soft come from the BRANDING block above */
   --accent-2: #a78bfa;
   --accent-3: #22d3ee;
-  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
-  --grad-soft: linear-gradient(135deg, rgba(99,102,241,.22), rgba(34,211,238,.16));
   --ok: #34d399;
   --warn: #fbbf24;
   --error: #fb7185;
@@ -191,7 +206,58 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
 .agent-status {
   justify-self: end; font-size: .78rem; font-weight: 600; color: var(--muted);
   padding: .22rem .6rem; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: nowrap; transition: color .2s, border-color .2s, background .2s;
+}
+.agent-status[data-state="run"]  { color: #c7d2fe; border-color: rgba(124,140,255,.5); background: rgba(124,140,255,.12); }
+.agent-status[data-state="ok"]   { color: var(--ok);   border-color: rgba(52,211,153,.5); background: rgba(52,211,153,.12); }
+.agent-status[data-state="err"]  { color: var(--error); border-color: rgba(251,113,133,.5); background: rgba(251,113,133,.12); }
+.agent-status[data-state="warn"] { color: var(--warn); border-color: rgba(251,191,36,.5); background: rgba(251,191,36,.12); }
+
+/* per-agent progress bar */
+.agent-progress {
+  height: 4px; margin-top: .7rem; border-radius: 999px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--border);
+}
+.agent-progress > span {
+  display: block; height: 100%; width: 0%; border-radius: 999px;
+  background: var(--grad); transition: width .35s cubic-bezier(.2,.8,.2,1);
+}
+
+/* toasts */
+.toasts {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
+  display: flex; flex-direction: column; gap: .55rem; align-items: flex-end;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto; cursor: pointer; max-width: min(360px, 88vw);
+  padding: .7rem 1rem; border-radius: 12px; font-size: .88rem; font-weight: 500;
+  color: var(--text); background: var(--panel-strong); border: 1px solid var(--border-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: var(--shadow);
+  opacity: 0; transform: translateY(12px) scale(.98); transition: all .28s cubic-bezier(.2,.8,.2,1);
+  border-left: 3px solid var(--accent);
+}
+.toast.show { opacity: 1; transform: none; }
+.toast.success { border-left-color: var(--ok); }
+.toast.error   { border-left-color: var(--error); }
+.toast.warn    { border-left-color: var(--warn); }
+
+/* lightbox */
+.lightbox {
+  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 3vmin;
+  background: rgba(4,5,8,.82); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; transition: opacity .2s ease;
+}
+.lightbox.show { opacity: 1; }
+.lightbox img {
+  max-width: 92vw; max-height: 88vh; border-radius: 14px; border: 1px solid var(--border-strong);
+  box-shadow: 0 30px 90px rgba(0,0,0,.6); animation: pop .28s cubic-bezier(.2,.8,.2,1);
+}
+.lightbox-close {
+  position: absolute; top: 1.1rem; right: 1.2rem; width: 42px; height: 42px; padding: 0;
+  border-radius: 50%; font-size: 1.1rem; background: var(--panel-strong); border: 1px solid var(--border-strong);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
 
 /* gallery */

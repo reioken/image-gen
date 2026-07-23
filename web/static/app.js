@@ -157,11 +157,64 @@ function collectAgents() {
 function agentRowByIndex(i) {
   return document.querySelectorAll(".agent")[i] || null;
 }
-function setAgentStatus(promptId, text) {
-  // promptId "aNN" -> array index NN-1
+function rowForPrompt(promptId) {
   const idx = parseInt(promptId.replace(/\D/g, ""), 10) - 1;
-  const row = agentRowByIndex(idx);
-  if (row) row.querySelector(".agent-status").textContent = text;
+  return agentRowByIndex(idx);
+}
+function setAgentStatus(promptId, text, state) {
+  const row = rowForPrompt(promptId);
+  if (!row) return;
+  const el = row.querySelector(".agent-status");
+  el.textContent = text;
+  el.dataset.state = state || "";
+}
+function initAgentProgress() {
+  document.querySelectorAll(".agent").forEach(row => {
+    const expected = parseInt(row.querySelector(".images").value || "1", 10);
+    row.dataset.expected = expected;
+    row.dataset.done = 0;
+    setAgentBar(row, 0);
+  });
+}
+function setAgentBar(row, pct) {
+  const bar = row.querySelector(".agent-progress > span");
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+}
+function bumpAgentProgress(promptId, by) {
+  const row = rowForPrompt(promptId);
+  if (!row) return;
+  const expected = parseInt(row.dataset.expected || "1", 10);
+  const done = Math.min(expected, (parseInt(row.dataset.done || "0", 10) + by));
+  row.dataset.done = done;
+  setAgentBar(row, (done / expected) * 100);
+  return { done, expected };
+}
+
+// --- toasts --------------------------------------------------------------
+function toast(message, type = "info", ms = 4200) {
+  const host = $("#toasts");
+  if (!host) return;
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  host.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  const kill = () => { el.classList.remove("show"); setTimeout(() => el.remove(), 300); };
+  el.addEventListener("click", kill);
+  setTimeout(kill, ms);
+}
+
+// --- lightbox ------------------------------------------------------------
+function openLightbox(url) {
+  const lb = $("#lightbox");
+  $("#lightbox-img").src = url;
+  lb.hidden = false;
+  requestAnimationFrame(() => lb.classList.add("show"));
+}
+function closeLightbox() {
+  const lb = $("#lightbox");
+  lb.classList.remove("show");
+  setTimeout(() => { lb.hidden = true; $("#lightbox-img").src = ""; }, 200);
 }
 
 // --- run -----------------------------------------------------------------
@@ -181,13 +234,16 @@ async function startRun() {
 
   setStatus("Starte…");
   $("#gallery").innerHTML = "";
+  initAgentProgress();
+  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet"; s.dataset.state = ""; });
   const res = await fetch(api("/api/run"), { method: "POST", headers: authHeaders(), body: fd });
-  if (!res.ok) { setStatus("Fehler: " + (await res.text())); return; }
+  if (!res.ok) { setStatus("Fehler: " + (await res.text())); toast("Start fehlgeschlagen", "error"); return; }
   const { run_id, total } = await res.json();
   CURRENT_RUN = run_id;
   $("#start").disabled = true;
   $("#stop").disabled = false;
   setStatus(`läuft — 0/${total}`);
+  toast(`Lauf gestartet — ${total} Bild(er)`, "info");
   streamEvents(run_id, total);
 }
 
@@ -197,24 +253,36 @@ function streamEvents(runId, total) {
   EVT = new EventSource(api(`/api/run/${runId}/events?token=${encodeURIComponent(store.token)}`));
   EVT.onmessage = (e) => {
     const ev = JSON.parse(e.data);
-    if (ev.type === "started") setAgentStatus(ev.prompt_id, "läuft…");
+    if (ev.type === "started") {
+      const row = rowForPrompt(ev.prompt_id);
+      const p = row ? `läuft (${row.dataset.done || 0}/${row.dataset.expected || 1})` : "läuft…";
+      setAgentStatus(ev.prompt_id, p, "run");
+    }
     else if (ev.type === "image") {
-      setAgentStatus(ev.prompt_id, "✓ fertig");
+      const n = ev.images.length;
       for (const img of ev.images) addResult(runId, img.file);
-      done++; setStatus(`läuft — ${done}/${total}`);
+      const prog = bumpAgentProgress(ev.prompt_id, n);
+      if (prog) setAgentStatus(ev.prompt_id, prog.done >= prog.expected ? "✓ fertig" : `läuft (${prog.done}/${prog.expected})`, prog.done >= prog.expected ? "ok" : "run");
+      done += n; setStatus(`läuft — ${done}/${total}`);
       if (ev.budget) updateBudget(ev.budget);
     }
-    else if (ev.type === "failed") { setAgentStatus(ev.prompt_id, "Fehler: " + ev.error); done++; setStatus(`läuft — ${done}/${total}`); }
-    else if (ev.type === "skipped") { setAgentStatus(ev.prompt_id, "übersprungen"); done++; }
+    else if (ev.type === "failed") {
+      setAgentStatus(ev.prompt_id, "✕ " + ev.error, "err");
+      toast(`Fehler bei ${ev.prompt_id}: ${ev.error}`, "error");
+      done++; setStatus(`läuft — ${done}/${total}`);
+    }
+    else if (ev.type === "skipped") { setAgentStatus(ev.prompt_id, "übersprungen", "warn"); done++; }
     else if (ev.type === "done") {
       setStatus(`fertig — ${ev.succeeded} ok, ${ev.failed} Fehler, ${ev.skipped} übersprungen`);
       if (ev.budget) updateBudget(ev.budget);
       $("#start").disabled = false; $("#stop").disabled = true;
+      const kind = ev.failed ? "warn" : "success";
+      toast(`Fertig — ${ev.succeeded} ok${ev.failed ? `, ${ev.failed} Fehler` : ""}${ev.skipped ? `, ${ev.skipped} übersprungen` : ""}`, kind, 6000);
       EVT.close(); EVT = null;
     }
-    else if (ev.type === "error") setStatus("Fehler: " + ev.message);
+    else if (ev.type === "error") { setStatus("Fehler: " + ev.message); toast(ev.message, "error"); }
   };
-  EVT.onerror = () => { setStatus("Verbindung unterbrochen."); $("#start").disabled = false; $("#stop").disabled = true; };
+  EVT.onerror = () => { setStatus("Verbindung unterbrochen."); toast("Verbindung unterbrochen", "error"); $("#start").disabled = false; $("#stop").disabled = true; };
 }
 
 function addResult(runId, filename) {
@@ -223,7 +291,8 @@ function addResult(runId, filename) {
   if (empty) empty.remove();
   const url = api(`/api/run/${runId}/image/${encodeURIComponent(filename)}?token=${encodeURIComponent(store.token)}`);
   const a = document.createElement("a");
-  a.href = url; a.target = "_blank"; a.rel = "noopener";
+  a.href = url;
+  a.addEventListener("click", (e) => { e.preventDefault(); openLightbox(url); });
   const img = document.createElement("img");
   img.src = url; img.loading = "lazy";
   a.appendChild(img);
@@ -234,6 +303,7 @@ async function stopRun() {
   if (!CURRENT_RUN) return;
   await fetch(api(`/api/run/${CURRENT_RUN}/cancel`), { method: "POST", headers: authHeaders() });
   setStatus("gestoppt.");
+  toast("Lauf gestoppt", "warn");
 }
 
 function setStatus(t) { $("#status").textContent = t; }
@@ -260,9 +330,14 @@ function wire() {
       await enterApp();
     } catch (ex) {
       err.textContent = ex.message; err.hidden = false;
+      toast(ex.message, "error");
     }
   });
   $("#logout").addEventListener("click", logout);
+  // lightbox close: button, backdrop click, Esc
+  $("#lightbox-close").addEventListener("click", closeLightbox);
+  $("#lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLightbox(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
   $("#reset-master").addEventListener("click", () => $("#master-prompt").value = CONFIG.default_master_prompt || "");
   $("#clear-master").addEventListener("click", () => $("#master-prompt").value = "");
   $("#add-agent").addEventListener("click", () => addAgent());

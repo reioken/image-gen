@@ -27,6 +27,8 @@ from PySide6.QtWidgets import (
 
 from ..core.config import (
     PROVIDER_ENV_KEYS,
+    PROVIDER_KEY_URLS,
+    PROVIDER_PRICING_URLS,
     AppConfig,
     app_data_dir,
     ensure_user_env,
@@ -135,6 +137,20 @@ class SettingsDialog(QDialog):
             key_edit.setPlaceholderText(key_var or "(no key needed)")
             key_edit.setEnabled(bool(key_var))
             row.addWidget(key_edit)
+
+            # Direct links: get the key, and view pricing.
+            key_url = PROVIDER_KEY_URLS.get(name, "")
+            price_url = PROVIDER_PRICING_URLS.get(name, "")
+            if key_url:
+                links = []
+                links.append(f'<a href="{key_url}">🔑 Get key</a>')
+                if price_url:
+                    links.append(f'<a href="{price_url}">💲 Pricing</a>')
+                link_label = QLabel(" · ".join(links))
+                link_label.setOpenExternalLinks(True)
+                link_label.setToolTip(f"Get key: {key_url}\nPricing: {price_url}")
+                row.addWidget(link_label)
+
             container = QWidget()
             container.setLayout(row)
             prov_form.addRow(f"{name}:", container)

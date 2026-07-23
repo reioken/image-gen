@@ -99,18 +99,18 @@ executable at `%APPDATA%\ProductImageBatch\.env` and is created from the templat
 on first launch. Enter keys through the GUI **Settings** dialog — no command line
 needed.
 
-| Env var | Provider | Where to get it |
-|---|---|---|
-| `OPENAI_API_KEY` | OpenAI GPT Image | platform.openai.com |
-| `GOOGLE_API_KEY` | Google Gemini / Imagen | ai.google.dev (AI Studio) |
-| `BFL_API_KEY` | Black Forest Labs (FLUX) | docs.bfl.ai |
-| `STABILITY_API_KEY` | Stability AI | platform.stability.ai |
-| `FAL_KEY` | fal.ai | fal.ai/dashboard |
-| `REPLICATE_API_TOKEN` | Replicate | replicate.com/account |
-| `IDEOGRAM_API_KEY` | Ideogram | developer.ideogram.ai |
-| `RECRAFT_API_TOKEN` | Recraft | recraft.ai |
-| `LEONARDO_API_KEY` | Leonardo.Ai | leonardo.ai |
-| `FREEPIK_API_KEY` | Freepik / Magnific (optional) | freepik.com |
+| Env var | Provider | Get the API key | Pricing |
+|---|---|---|---|
+| `OPENAI_API_KEY` | OpenAI GPT Image | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | [pricing](https://openai.com/api/pricing/) |
+| `GOOGLE_API_KEY` | Google Gemini / Imagen | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | [pricing](https://ai.google.dev/pricing) |
+| `BFL_API_KEY` | Black Forest Labs (FLUX) | [dashboard.bfl.ai](https://dashboard.bfl.ai/) | [pricing](https://docs.bfl.ai/pricing) |
+| `STABILITY_API_KEY` | Stability AI | [platform.stability.ai/account/keys](https://platform.stability.ai/account/keys) | [pricing](https://platform.stability.ai/pricing) |
+| `FAL_KEY` | fal.ai | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) | [pricing](https://fal.ai/pricing) |
+| `REPLICATE_API_TOKEN` | Replicate | [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) | [pricing](https://replicate.com/pricing) |
+| `IDEOGRAM_API_KEY` | Ideogram | [ideogram.ai/manage-api](https://ideogram.ai/manage-api) | [pricing](https://developer.ideogram.ai/ideogram-api/pricing) |
+| `RECRAFT_API_TOKEN` | Recraft | [recraft.ai/profile/api](https://www.recraft.ai/profile/api) | [docs](https://www.recraft.ai/docs) |
+| `LEONARDO_API_KEY` | Leonardo.Ai | [app.leonardo.ai/api-access](https://app.leonardo.ai/api-access) | [api](https://leonardo.ai/api/) |
+| `FREEPIK_API_KEY` | Freepik / Magnific (optional) | [freepik.com developers](https://www.freepik.com/developers/dashboard/api-key) | [api](https://www.freepik.com/api) |
 
 Providers **without a key are skipped automatically** and logged as
 `skipped_missing_key`.

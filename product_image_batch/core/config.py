@@ -54,6 +54,39 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "mock": "",  # never needs a key
 }
 
+# Direct links where you can create/see the API key and view pricing/billing.
+# Shown in the GUI settings dialog and in the README. (Provider sites move
+# occasionally; if a link 404s, the provider's main docs/dashboard is the
+# fallback.)
+PROVIDER_KEY_URLS: dict[str, str] = {
+    "openai": "https://platform.openai.com/api-keys",
+    "google": "https://aistudio.google.com/apikey",
+    "bfl": "https://dashboard.bfl.ai/",
+    "stability": "https://platform.stability.ai/account/keys",
+    "fal": "https://fal.ai/dashboard/keys",
+    "replicate": "https://replicate.com/account/api-tokens",
+    "ideogram": "https://ideogram.ai/manage-api",
+    "recraft": "https://www.recraft.ai/profile/api",
+    "leonardo": "https://app.leonardo.ai/api-access",
+    "freepik": "https://www.freepik.com/developers/dashboard/api-key",
+    "mock": "",
+}
+
+# Direct links to each provider's pricing page (where different from the key page).
+PROVIDER_PRICING_URLS: dict[str, str] = {
+    "openai": "https://openai.com/api/pricing/",
+    "google": "https://ai.google.dev/pricing",
+    "bfl": "https://docs.bfl.ai/pricing",
+    "stability": "https://platform.stability.ai/pricing",
+    "fal": "https://fal.ai/pricing",
+    "replicate": "https://replicate.com/pricing",
+    "ideogram": "https://developer.ideogram.ai/ideogram-api/pricing",
+    "recraft": "https://www.recraft.ai/docs",
+    "leonardo": "https://leonardo.ai/api/",
+    "freepik": "https://www.freepik.com/api",
+    "mock": "",
+}
+
 
 class RetryConfig(BaseModel):
     max_retries: int = 3

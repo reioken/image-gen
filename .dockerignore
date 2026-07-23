@@ -1,0 +1,13 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+outputs
+dist
+build/**/build
+.pytest_cache
+tests
+docs
+*.md
+.env

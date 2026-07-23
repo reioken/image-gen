@@ -25,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = ["PySide6>=6.6"]
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9"]
 csv = ["pandas>=2.2"]
 limits = ["aiolimiter>=1.1"]
 build = ["pyinstaller>=6.3"]
@@ -50,7 +51,10 @@ product-image-batch = "product_image_batch.cli:main"
 product-image-batch-gui = "product_image_batch.gui.app:main"
 
 [tool.setuptools.packages.find]
-include = ["product_image_batch*"]
+include = ["product_image_batch*", "web*"]
+
+[tool.setuptools.package-data]
+web = ["static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

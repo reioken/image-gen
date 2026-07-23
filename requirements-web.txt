@@ -1,0 +1,5 @@
+# Web (browser) backend — install alongside requirements.txt on the server.
+#   pip install -r requirements.txt -r requirements-web.txt
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9

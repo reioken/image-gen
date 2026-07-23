@@ -255,6 +255,24 @@ budget caps. Changes apply to newly started tasks immediately.
 
 ---
 
+## Browser version (web app)
+
+A password-protected browser front-end lives in `web/` (FastAPI backend + static
+UI) over the same engine. Keys stay **server-side** — the browser never sees them.
+
+Run locally:
+
+```bash
+pip install -r requirements.txt -r requirements-web.txt
+export WEB_APP_PASSWORD=test OPENAI_API_KEY=sk-...   # Windows: $env:WEB_APP_PASSWORD="test"
+uvicorn web.server:app --reload --port 8000
+# open http://localhost:8000
+```
+
+The server refuses to start without `WEB_APP_PASSWORD`. Deploy on any Python host
+(Render/Railway/Fly.io/VPS or the included `Dockerfile`) and point a Cloudflare
+subdomain at it — full guide in [`docs/WEB_DEPLOY.md`](docs/WEB_DEPLOY.md).
+
 ## Building the Windows .exe
 
 > PyInstaller cannot cross-compile: a Windows `.exe` must be built **on Windows**.

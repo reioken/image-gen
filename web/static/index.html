@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Product Image Batch</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="login" class="login">
+    <form id="login-form" class="card">
+      <h1>Product Image Batch</h1>
+      <p class="muted">Passwortgeschützter Zugang</p>
+      <label>Passwort
+        <input type="password" id="password" autocomplete="current-password" required />
+      </label>
+      <details>
+        <summary class="muted">Erweitert: Server-URL</summary>
+        <label>Backend-URL (leer = gleiche Domain)
+          <input type="text" id="api-base" placeholder="https://api.dennisbf.design" />
+        </label>
+      </details>
+      <button type="submit">Anmelden</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </div>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <strong>Product Image Batch</strong>
+      <span class="grow"></span>
+      <span id="budget" class="badge">Budget: $0.00</span>
+      <button id="logout" class="ghost">Logout</button>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Master-Prompt <span class="muted">— globale Regel für alle Agenten</span></h2>
+        <p class="muted small">Wird jedem Agenten vorangestellt: Konsistenz, Setting, Licht, Qualität.</p>
+        <textarea id="master-prompt" rows="8"></textarea>
+        <div class="row">
+          <button id="reset-master" class="ghost">Auf Standard zurücksetzen</button>
+          <button id="clear-master" class="ghost">Leeren</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Referenzbilder</h2>
+        <div id="dropzone" class="dropzone">
+          <p>Produktbilder hierher ziehen oder <label class="link">durchsuchen<input id="ref-input" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></label></p>
+        </div>
+        <div id="ref-thumbs" class="thumbs"></div>
+        <details>
+          <summary class="muted">Maske (optional, PNG — Inpainting)</summary>
+          <input id="mask-input" type="file" accept="image/png" />
+          <div id="mask-thumbs" class="thumbs"></div>
+        </details>
+      </section>
+
+      <section class="panel">
+        <h2>Agenten <span class="muted">— jede Zeile läuft parallel</span></h2>
+        <div id="agents"></div>
+        <button id="add-agent" class="ghost">➕ Agent hinzufügen</button>
+      </section>
+
+      <section class="panel actions">
+        <button id="start" class="primary">▶ Start</button>
+        <button id="stop" class="ghost" disabled>■ Stop</button>
+        <span id="status" class="muted"></span>
+      </section>
+
+      <section class="panel">
+        <h2>Ergebnisse <span class="muted">— live, Klick öffnet groß</span></h2>
+        <div id="gallery" class="gallery"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Agent row template -->
+  <template id="agent-template">
+    <div class="agent">
+      <div class="agent-head">
+        <strong class="agent-label">Agent</strong>
+        <label>Provider
+          <select class="provider"></select>
+        </label>
+        <label>Modell
+          <input class="model" list="" placeholder="modell-id" />
+        </label>
+        <label>Bilder
+          <input class="images" type="number" min="1" max="100" value="1" />
+        </label>
+        <button class="remove ghost" title="Entfernen">✕</button>
+      </div>
+      <textarea class="prompt" rows="2" placeholder="Szene beschreiben. Produkt exakt lassen; nur Hintergrund, Licht, Kamera, Styling ändern…"></textarea>
+      <div class="agent-params">
+        <label>Größe <input class="size" value="1024x1024" /></label>
+        <label>Seed <input class="seed" placeholder="zufällig" /></label>
+        <label>Strength <input class="strength" placeholder="auto" /></label>
+        <span class="agent-status muted">idle</span>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -60,6 +60,30 @@ def test_generate_from_brief_produces_n_variants():
     assert len({v.prompt_id for v in variants}) == 5
 
 
+def test_master_prompt_is_prepended_to_every_provider():
+    from product_image_batch.core.prompting import DEFAULT_MASTER_PROMPT
+
+    rw = PromptRewriter()
+    master = "ALWAYS: keep the exact same bottle and label."
+    variants = [PromptVariant("p001", "hero", "Studio shot"),
+                PromptVariant("p002", "out", "Outdoor shot")]
+    out = rw.rewrite_all(variants, ["openai", "fal"], master_prompt=master)
+    for v in out:
+        for provider in ("openai", "fal"):
+            text = v.provider_overrides[provider]
+            assert text.startswith(master)          # master leads every prompt
+            assert "Studio shot" in text or "Outdoor shot" in text
+    # And the built-in default is a non-empty consistency block.
+    assert "CONSISTENCY" in DEFAULT_MASTER_PROMPT.upper()
+
+
+def test_master_prompt_empty_is_noop():
+    rw = PromptRewriter()
+    v = PromptVariant("p001", "hero", "Studio shot")
+    out = rw.rewrite_variant(v, ["openai"], master_prompt="")
+    assert out.provider_overrides["openai"].startswith("Write the prompt")  # provider hint first
+
+
 def test_resolved_prompts_json_roundtrip():
     rw = PromptRewriter()
     variants = rw.generate_from_brief("brief", 2, ["openai"])

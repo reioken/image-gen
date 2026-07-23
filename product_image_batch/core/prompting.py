@@ -23,6 +23,25 @@ from .config import resource_root
 _PKG_ROOT = resource_root()
 DEFAULT_REWRITE_CONFIG = _PKG_ROOT / "config" / "prompt_rewrite.yaml"
 
+# A strong default "master prompt": global consistency rules the user can edit,
+# applied to EVERY agent/prompt in a tab so all variants share one identity,
+# setting and quality baseline.
+DEFAULT_MASTER_PROMPT = """\
+PRODUCT CONSISTENCY (applies to every image):
+- Keep the exact same product in every image: identical shape, proportions, size ratios, materials, colors, textures and finish.
+- Preserve all branding exactly — logo, label text, typography, icons and their placement. Do not alter, translate, reflow, blur or invent any text.
+- Do not add, remove, duplicate or swap any product part (cap, lid, nozzle, seams, labels).
+- Only the scene may change: background, surface, lighting, camera angle, styling and props.
+
+SETTING & STYLE:
+- Photorealistic, high-end commercial product photography.
+- Clean studio-grade lighting with soft, believable shadows and accurate reflections.
+- Neutral, true-to-life color balance; product tack-sharp; realistic, shallow depth of field.
+- Consistent camera height, distance and framing across shots unless a prompt explicitly says otherwise.
+
+QUALITY:
+- High resolution, crisp detail. No artifacts, no watermarks, no extra text, no warped geometry, no distortions."""
+
 
 @dataclass
 class PromptVariant:
@@ -135,16 +154,24 @@ class PromptRewriter:
         providers: list[str],
         *,
         with_mask: bool = False,
+        master_prompt: str = "",
     ) -> PromptVariant:
-        """Return a new variant with provider_overrides + negative_prompt filled."""
+        """Return a new variant with provider_overrides + negative_prompt filled.
+
+        ``master_prompt`` is a tab-wide rule block prepended to every provider's
+        prompt so all agents share the same consistency/setting requirements.
+        """
         preservation = self._preservation_block(with_mask)
+        master = (master_prompt or "").strip()
         overrides: dict[str, str] = dict(variant.provider_overrides)
         for provider in providers:
             if provider in overrides:
                 continue  # respect explicit overrides from the prompts file
             hint = self.provider_hints.get(provider, "")
-            parts = [p for p in (hint, variant.text, preservation) if p]
-            overrides[provider] = " ".join(parts).strip()
+            # Order: global master rules → provider hint → this shot's prompt →
+            # preservation reminders. The master rules lead so they anchor every image.
+            parts = [p for p in (master, hint, variant.text, preservation) if p]
+            overrides[provider] = "\n\n".join(parts).strip()
         negative = variant.negative_prompt or self.default_negative
         return PromptVariant(
             prompt_id=variant.prompt_id,
@@ -160,8 +187,12 @@ class PromptRewriter:
         providers: list[str],
         *,
         with_mask: bool = False,
+        master_prompt: str = "",
     ) -> list[PromptVariant]:
-        return [self.rewrite_variant(v, providers, with_mask=with_mask) for v in variants]
+        return [
+            self.rewrite_variant(v, providers, with_mask=with_mask, master_prompt=master_prompt)
+            for v in variants
+        ]
 
     def generate_from_brief(
         self,
@@ -170,6 +201,7 @@ class PromptRewriter:
         providers: list[str],
         *,
         with_mask: bool = False,
+        master_prompt: str = "",
     ) -> list[PromptVariant]:
         """Offline brief expansion: create ``count`` scene variations of a brief.
 
@@ -200,7 +232,9 @@ class PromptRewriter:
                     text=text,
                 )
             )
-        return self.rewrite_all(variants, providers, with_mask=with_mask)
+        return self.rewrite_all(
+            variants, providers, with_mask=with_mask, master_prompt=master_prompt
+        )
 
 
 def resolved_prompts_to_json(variants: list[PromptVariant]) -> list[dict[str, Any]]:

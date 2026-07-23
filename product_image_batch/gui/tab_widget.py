@@ -14,8 +14,10 @@ from pathlib import Path
 from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -25,7 +27,7 @@ from PySide6.QtWidgets import (
 from ..core.assets import copy_into_run, validate_assets
 from ..core.config import AppConfig
 from ..core.metadata import utc_timestamp_compact
-from ..core.prompting import PromptRewriter, PromptVariant
+from ..core.prompting import DEFAULT_MASTER_PROMPT, PromptRewriter, PromptVariant
 from ..core.scheduler import build_generation_tasks
 from ..core.utils import images as imgutil
 from ..core.utils.logging import get_logger
@@ -58,6 +60,30 @@ class TabRunController(QWidget):
         self._prompt_to_row: dict[str, AgentRow] = {}
 
         root = QVBoxLayout(self)
+
+        # Master prompt — a tab-wide rule applied to EVERY agent, always.
+        master_box = QGroupBox("Master prompt — global rule applied to every agent (consistency, setting, style)")
+        master_layout = QVBoxLayout(master_box)
+        master_hint = QLabel(
+            "This text is prepended to every agent's prompt in this tab. Put your "
+            "consistency requirements, setting, lighting, camera and quality rules here."
+        )
+        master_hint.setWordWrap(True)
+        master_hint.setStyleSheet("color:#888;")
+        master_layout.addWidget(master_hint)
+        self.master_prompt = QPlainTextEdit(DEFAULT_MASTER_PROMPT)
+        self.master_prompt.setFixedHeight(150)
+        master_layout.addWidget(self.master_prompt)
+        master_btns = QHBoxLayout()
+        reset_master = QPushButton("Reset to default")
+        reset_master.clicked.connect(lambda: self.master_prompt.setPlainText(DEFAULT_MASTER_PROMPT))
+        clear_master = QPushButton("Clear")
+        clear_master.clicked.connect(lambda: self.master_prompt.setPlainText(""))
+        master_btns.addWidget(reset_master)
+        master_btns.addWidget(clear_master)
+        master_btns.addStretch(1)
+        master_layout.addLayout(master_btns)
+        root.addWidget(master_box)
 
         # Reference + mask drop zones.
         self.refs = ReferenceImageDropZone("Reference images")
@@ -135,12 +161,15 @@ class TabRunController(QWidget):
     def snapshot(self) -> dict:
         return {
             "name": f"{self.name} copy",
+            "master_prompt": self.master_prompt.toPlainText(),
             "references": [str(p) for p in self.refs.paths()],
             "mask": [str(p) for p in self.mask.paths()],
             "agents": [row.to_config() for row in self.agent_rows()],
         }
 
     def load_snapshot(self, snap: dict) -> None:
+        if "master_prompt" in snap:
+            self.master_prompt.setPlainText(snap["master_prompt"])
         self.refs.set_paths([Path(p) for p in snap.get("references", [])])
         self.mask.set_paths([Path(p) for p in snap.get("mask", [])])
         # Clear default agent, add from snapshot.
@@ -171,7 +200,8 @@ class TabRunController(QWidget):
             prompt_id = f"a{i:02d}"
             variant = PromptVariant(prompt_id=prompt_id, base_intent=cfg.label, text=cfg.prompt)
             variant = self.rewriter.rewrite_variant(
-                variant, [cfg.provider], with_mask=copied_mask is not None
+                variant, [cfg.provider], with_mask=copied_mask is not None,
+                master_prompt=self.master_prompt.toPlainText(),
             )
             row_tasks = build_generation_tasks(
                 prompts=[variant],

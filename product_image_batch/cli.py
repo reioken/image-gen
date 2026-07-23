@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Generate N prompt variants from --brief.")
     p.add_argument("--rewrite-prompts", action="store_true",
                    help="Add product-preservation + provider-specific rewriting to each prompt.")
+    p.add_argument("--master-prompt", metavar="TEXT",
+                   help="Global rule prepended to every prompt (consistency, setting, style).")
+    p.add_argument("--master-prompt-file", metavar="PATH",
+                   help="Read the master prompt from a file.")
+    p.add_argument("--default-master-prompt", action="store_true",
+                   help="Use the built-in strong consistency master prompt for every prompt.")
     p.add_argument("--providers", default="", metavar="LIST",
                    help="Comma-separated provider list (overrides config 'enabled').")
     p.add_argument("--models", default="", metavar="LIST",
@@ -128,6 +134,19 @@ def _filter_providers(pairs, config, env, dry_run: bool):
     return kept
 
 
+def _resolve_master_prompt(args) -> str:
+    """Resolve the master prompt from flags (file > text > built-in default)."""
+    from .core.prompting import DEFAULT_MASTER_PROMPT
+
+    if args.master_prompt_file:
+        return Path(args.master_prompt_file).read_text(encoding="utf-8").strip()
+    if args.master_prompt:
+        return args.master_prompt.strip()
+    if args.default_master_prompt:
+        return DEFAULT_MASTER_PROMPT
+    return ""
+
+
 def _default_out_dir() -> Path:
     stamp = _dt.datetime.now().strftime("%Y-%m-%d_%H%M")
     return Path("outputs") / f"{stamp}_product_batch"
@@ -170,16 +189,20 @@ async def _run(args) -> int:
     provider_names = sorted({p for p, _ in provider_models})
 
     rewriter = PromptRewriter(load_rewrite_config())
+    master_prompt = _resolve_master_prompt(args)
     if args.brief and args.generate_prompts > 0:
         brief_text = Path(args.brief).read_text(encoding="utf-8")
         variants = rewriter.generate_from_brief(
-            brief_text, args.generate_prompts, provider_names, with_mask=mask is not None
+            brief_text, args.generate_prompts, provider_names,
+            with_mask=mask is not None, master_prompt=master_prompt,
         )
     elif not variants:
         print("error: provide --prompt/--prompts or --brief with --generate-prompts", file=sys.stderr)
         return 2
-    elif args.rewrite_prompts:
-        variants = rewriter.rewrite_all(variants, provider_names, with_mask=mask is not None)
+    elif args.rewrite_prompts or master_prompt:
+        variants = rewriter.rewrite_all(
+            variants, provider_names, with_mask=mask is not None, master_prompt=master_prompt
+        )
 
     # Output dir
     out_dir = Path(args.out) if args.out else _default_out_dir()

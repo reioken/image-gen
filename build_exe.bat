@@ -33,10 +33,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM --- Zip the result so it can be dropped on Google Drive / a USB stick ----
+echo.
+echo Zipping dist\ProductImageBatch into dist\ProductImageBatch.zip ...
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\ProductImageBatch\*' -DestinationPath 'dist\ProductImageBatch.zip' -Force"
+
 echo.
 echo ==========================================================================
-echo  Done:  dist\ProductImageBatch\ProductImageBatch.exe
-echo  Launch it, open Settings, paste your API keys (stored in
-echo  %%APPDATA%%\ProductImageBatch\.env), then start generating.
+echo  Done!
+echo    App folder : dist\ProductImageBatch\ProductImageBatch.exe
+echo    Portable   : dist\ProductImageBatch.zip   ^<-- copy this to Google Drive
+echo.
+echo  On the other PC: download the zip, right-click ^> Extract All, then
+echo  double-click ProductImageBatch.exe (no Python needed).
+echo  First run: Settings ^> paste API keys ^> Save, then Start this tab.
 echo ==========================================================================
 endlocal

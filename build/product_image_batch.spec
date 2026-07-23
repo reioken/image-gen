@@ -36,16 +36,18 @@ datas = [
 ]
 
 # PySide6 plugins (platforms, imageformats, styles) must come along; PyInstaller's
-# PySide6 hook handles most, but be explicit about optional bits.
+# PySide6 hook handles most, but be explicit about optional bits. Collect the whole
+# product_image_batch package so every provider/util module is bundled even though
+# some are imported lazily.
 hiddenimports = (
-    collect_submodules("product_image_batch.core.providers")
+    collect_submodules("product_image_batch")
     + ["PySide6.QtSvg", "PIL._tkinter_finder"]
 )
 
 block_cipher = None
 
 a = Analysis(
-    [str(ROOT / "product_image_batch" / "gui" / "app.py")],
+    [str(ROOT / "pib_gui.py")],
     pathex=[str(ROOT)],
     binaries=[],
     datas=datas,

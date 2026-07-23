@@ -16,8 +16,11 @@ import sys
 
 def _bootstrap_user_files() -> None:
     """Create per-user .env / settings.json from templates and load the .env."""
-    from ..core.config import ensure_user_env, ensure_user_settings
-    from ..core.utils.logging import setup_logging
+    # Absolute imports (not relative): this module is the app entry point and is
+    # run as the top-level ``__main__`` script in the packaged .exe, where there
+    # is no parent package for relative imports to resolve against.
+    from product_image_batch.core.config import ensure_user_env, ensure_user_settings
+    from product_image_batch.core.utils.logging import setup_logging
 
     setup_logging(verbose=False, to_file=True)
     env_path = ensure_user_env()
@@ -43,7 +46,7 @@ def main() -> int:
         )
         return 1
 
-    from .main_window import MainWindow
+    from product_image_batch.gui.main_window import MainWindow
 
     app = QApplication(sys.argv)
     app.setApplicationName("Product Image Batch")

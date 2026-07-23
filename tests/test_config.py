@@ -22,7 +22,7 @@ def test_stability_rate_window():
 
 def test_resolve_model_prefers_default():
     cfg = load_config()
-    assert cfg.provider("openai").resolve_model(None) == "gpt-image-1"
+    assert cfg.provider("openai").resolve_model(None) == "gpt-image-2"
     assert cfg.provider("openai").resolve_model("gpt-image-1.5") == "gpt-image-1.5"
 
 

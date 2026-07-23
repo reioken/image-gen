@@ -26,10 +26,13 @@ providers:
     rate_limit_per_minute: 5        # Tier-1 safe; raise for higher tiers
     supports_reference_images: true
     supports_masks: true
-    default_model: gpt-image-1
+    default_model: gpt-image-2
     models:
+      - gpt-image-2                 # released 2026-04-21, latest GPT Image
+      - gpt-image-2-2026-04-21      # pinned snapshot
       - gpt-image-1.5
       - gpt-image-1
+      - gpt-image-1-mini            # cheaper/faster
 
   google:
     enabled: false
@@ -39,8 +42,10 @@ providers:
     supports_masks: false
     default_model: gemini-2.5-flash-image
     models:
-      - gemini-2.5-flash-image
-      - imagen-3.0-generate-002
+      - gemini-2.5-flash-image      # "Nano Banana" — native image editing
+      - gemini-3-pro-image          # "Nano Banana Pro" — higher tier
+      - imagen-4.0-generate-001     # note: Imagen is text-to-image only
+      - imagen-4.0-ultra-generate-001
 
   bfl:
     enabled: false
@@ -51,8 +56,10 @@ providers:
     default_model: flux-2-pro
     models:
       - flux-2-pro
+      - flux-2-flex
       - flux-kontext-pro
       - flux-kontext-max
+      - flux-pro-1.1
 
   stability:
     enabled: false
@@ -64,6 +71,9 @@ providers:
     models:
       - stable-image-ultra
       - sd3.5-large
+      - sd3.5-large-turbo
+      - sd3.5-medium
+      - core
 
   fal:
     enabled: false
@@ -74,6 +84,9 @@ providers:
     models:
       - fal-ai/image-apps-v2/product-photography
       - fal-ai/flux-pro/kontext
+      - fal-ai/flux-pro/kontext/max
+      - fal-ai/nano-banana/edit
+      - fal-ai/recraft/v3/image-to-image
 
   replicate:
     enabled: false
@@ -84,14 +97,17 @@ providers:
     default_model: black-forest-labs/flux-kontext-pro
     models:
       - black-forest-labs/flux-kontext-pro
+      - black-forest-labs/flux-kontext-max
+      - black-forest-labs/flux-1.1-pro
 
   ideogram:
     enabled: false
     max_concurrent: 8               # stay under 10 inflight requests
     supports_reference_images: true
     supports_masks: true
-    default_model: V_2
+    default_model: V_3
     models:
+      - V_3
       - V_2
       - V_2_TURBO
 
@@ -103,6 +119,7 @@ providers:
     default_model: recraftv3
     models:
       - recraftv3
+      - recraftv2
 
   leonardo:
     enabled: false

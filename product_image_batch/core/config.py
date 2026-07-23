@@ -16,13 +16,26 @@ import os
 from pathlib import Path
 from typing import Any
 
+import sys
+
 import yaml
 from pydantic import BaseModel, Field
 
 from .utils.logging import app_data_dir
 
-# Repo-root-relative default config location (works from source checkout).
-_PKG_ROOT = Path(__file__).resolve().parents[2]
+
+def resource_root() -> Path:
+    """Root that holds bundled resources (config/, .env.example).
+
+    In a PyInstaller build the data files are unpacked to ``sys._MEIPASS``; from
+    a source checkout they live at the repository root.
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parents[2]
+
+
+_PKG_ROOT = resource_root()
 DEFAULT_CONFIG_PATH = _PKG_ROOT / "config" / "providers.yaml"
 DEFAULT_SETTINGS_TEMPLATE = _PKG_ROOT / "config" / "settings.default.json"
 

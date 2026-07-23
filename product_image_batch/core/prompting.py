@@ -18,7 +18,9 @@ from typing import Any
 
 import yaml
 
-_PKG_ROOT = Path(__file__).resolve().parents[2]
+from .config import resource_root
+
+_PKG_ROOT = resource_root()
 DEFAULT_REWRITE_CONFIG = _PKG_ROOT / "config" / "prompt_rewrite.yaml"
 
 

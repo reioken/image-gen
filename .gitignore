@@ -1,0 +1,31 @@
+# Secrets — never commit
+.env
+.env.local
+
+# Generated output
+outputs/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# PyInstaller build artifacts
+build/**/build/
+dist/
+*.manifest
+*.pkg
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

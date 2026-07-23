@@ -1,0 +1,38 @@
+{
+  "global_max_concurrent": 20,
+  "max_concurrent_tabs": 0,
+  "auto_retry": true,
+  "max_retries": 3,
+  "budget_cap_total_usd": 0.0,
+  "budget_cap_per_tab_usd": 0.0,
+  "require_confirmation_over_usd": 10.0,
+  "default_images_per_agent": 1,
+  "default_size": "1024x1024",
+  "default_output_format": "png",
+  "per_provider_concurrency": {
+    "openai": 2,
+    "google": 3,
+    "bfl": 3,
+    "stability": 6,
+    "fal": 2,
+    "replicate": 10,
+    "ideogram": 8,
+    "recraft": 3,
+    "leonardo": 3,
+    "freepik": 2,
+    "mock": 8
+  },
+  "enabled_providers": {
+    "openai": true,
+    "google": false,
+    "bfl": false,
+    "stability": false,
+    "fal": false,
+    "replicate": false,
+    "ideogram": false,
+    "recraft": false,
+    "leonardo": false,
+    "freepik": false,
+    "mock": false
+  }
+}

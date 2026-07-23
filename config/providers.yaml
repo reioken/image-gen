@@ -1,0 +1,133 @@
+# Provider configuration for product-image-batch.
+#
+# Every value here is a conservative, rate-limit-safe default. All of it can be
+# overridden from the CLI (--config / --providers) or the GUI settings dialog.
+#
+# Concurrency and rate-limit defaults are chosen to stay safely below the
+# documented per-provider limits. Raise them once you know your account tier.
+
+# App-wide safety cap: never run more than this many concurrent requests across
+# ALL providers combined, no matter what the per-provider limits allow.
+global_max_concurrent: 20
+
+# Global retry policy (per task). Overridable per provider.
+retry:
+  max_retries: 3
+  initial_backoff_seconds: 2.0
+  max_backoff_seconds: 60.0
+  jitter: true
+  # HTTP statuses that are safe to retry.
+  retry_statuses: [408, 409, 425, 429, 500, 502, 503, 504]
+
+providers:
+  openai:
+    enabled: true
+    max_concurrent: 2
+    rate_limit_per_minute: 5        # Tier-1 safe; raise for higher tiers
+    supports_reference_images: true
+    supports_masks: true
+    default_model: gpt-image-1
+    models:
+      - gpt-image-1.5
+      - gpt-image-1
+
+  google:
+    enabled: false
+    max_concurrent: 3
+    rate_limit_per_minute: 10       # check AI Studio for your real RPM
+    supports_reference_images: true
+    supports_masks: false
+    default_model: gemini-2.5-flash-image
+    models:
+      - gemini-2.5-flash-image
+      - imagen-3.0-generate-002
+
+  bfl:
+    enabled: false
+    max_concurrent: 3
+    rate_limit_per_minute: 24
+    supports_reference_images: true
+    supports_masks: false
+    default_model: flux-2-pro
+    models:
+      - flux-2-pro
+      - flux-kontext-pro
+      - flux-kontext-max
+
+  stability:
+    enabled: false
+    max_concurrent: 6
+    rate_limit_per_10s: 120         # stay under the documented 150/10s
+    supports_reference_images: true
+    supports_masks: true
+    default_model: sd3.5-large
+    models:
+      - stable-image-ultra
+      - sd3.5-large
+
+  fal:
+    enabled: false
+    max_concurrent: 2               # new accounts start at 2 concurrent
+    supports_reference_images: true
+    supports_masks: false
+    default_model: fal-ai/image-apps-v2/product-photography
+    models:
+      - fal-ai/image-apps-v2/product-photography
+      - fal-ai/flux-pro/kontext
+
+  replicate:
+    enabled: false
+    max_concurrent: 10
+    rate_limit_per_minute: 500      # stay under 600 prediction creates/min
+    supports_reference_images: true
+    supports_masks: false
+    default_model: black-forest-labs/flux-kontext-pro
+    models:
+      - black-forest-labs/flux-kontext-pro
+
+  ideogram:
+    enabled: false
+    max_concurrent: 8               # stay under 10 inflight requests
+    supports_reference_images: true
+    supports_masks: true
+    default_model: V_2
+    models:
+      - V_2
+      - V_2_TURBO
+
+  recraft:
+    enabled: false
+    max_concurrent: 3
+    supports_reference_images: true
+    supports_masks: true
+    default_model: recraftv3
+    models:
+      - recraftv3
+
+  leonardo:
+    enabled: false
+    max_concurrent: 3
+    supports_reference_images: true
+    supports_masks: false
+    default_model: leonardo-phoenix
+    models:
+      - leonardo-phoenix
+
+  freepik:
+    enabled: false                  # optional; requires user-supplied docs/key
+    max_concurrent: 2
+    supports_reference_images: true
+    supports_masks: false
+    default_model: mystic
+    models:
+      - mystic
+
+  # Mock provider for local testing / --dry-run demos. Never makes network calls.
+  mock:
+    enabled: false
+    max_concurrent: 8
+    supports_reference_images: true
+    supports_masks: true
+    default_model: mock-v1
+    models:
+      - mock-v1

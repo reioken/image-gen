@@ -1,0 +1,39 @@
+# Configuration for the optional LLM prompt-rewriting module (prompting.py).
+#
+# The rewriter turns a base brief into many provider-specific prompt variants,
+# each carrying strong product-preservation instructions. When no LLM key is
+# configured, a deterministic offline rewriter is used instead so the feature
+# still works without network access.
+
+rewrite:
+  # LLM used for rewriting (only used when an OpenAI key is present and
+  # use_llm is true). The offline rewriter is used otherwise.
+  use_llm: false
+  llm_provider: openai
+  llm_model: gpt-4o-mini
+
+  # Instructions appended to every rewritten prompt to keep the product
+  # identical across variants.
+  preservation_instructions:
+    - "Preserve the exact product shape, proportions, logo placement, label text, color, material and packaging geometry."
+    - "Do not invent a different product, do not change brand marks, do not add extra labels or extra products."
+    - "Only change scene, lighting, background, camera angle and styling unless explicitly requested."
+
+  mask_instruction: "Only edit the masked / background area; keep the product completely unchanged."
+
+  # Default negative prompt for providers that support one.
+  default_negative_prompt: >-
+    warped logo, changed label text, extra products, incorrect cap, melted
+    geometry, distorted proportions, low-res, blurry, watermark, text artifacts
+
+  # Per-provider phrasing hints prepended to the base intent.
+  provider_hints:
+    openai: "Write the prompt as a complete target-image description, not just a delta. Use the supplied product reference images as the identity source."
+    google: "Number the references clearly: 'Image 1 is the product identity reference'. Rely on multi-image fusion for product/subject consistency."
+    bfl: "Name the references explicitly: use image 1 as the product identity reference, image 2 as material/detail reference."
+    stability: "image-to-image product packshot; use a medium strength so scene changes but product identity is preserved."
+    fal: "Product-photography style; feed the product image as the identity reference."
+    replicate: "Follow the selected model's prompt schema; treat the reference image as the product identity."
+    ideogram: "Use the reference as a character/product reference; keep brand marks intact."
+    recraft: "image-to-image; preserve composition, color and subject identity of the product."
+    leonardo: "Use image guidance from the uploaded product image; keep product identity via content reference."

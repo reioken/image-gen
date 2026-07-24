@@ -426,6 +426,15 @@ a#lb-download { text-decoration: none; display: inline-flex; align-items: center
 .danger { color: var(--warn); font-weight: 600; }
 .danger-btn { color: var(--error); border-color: rgba(251,113,133,.5); background: rgba(251,113,133,.1); }
 
+/* projects */
+.project-save-row { align-items: flex-end; }
+.project-name-field { flex: 1; min-width: 160px; }
+.project-list { display: flex; flex-direction: column; gap: .5rem; margin-top: .5rem; }
+.project-row { display: flex; align-items: center; gap: .6rem; padding: .55rem .7rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); }
+.project-info { flex: 1; min-width: 0; }
+.project-name-lbl { font-weight: 650; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* live scope line + favourite star + filter */
 .scope { white-space: nowrap; }
 .result-item { position: relative; }

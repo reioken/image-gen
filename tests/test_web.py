@@ -111,3 +111,35 @@ def test_image_path_traversal_blocked(client):
     # attempt traversal — must not escape images/
     bad = client.get(f"/api/run/{run_id}/image/..%2f..%2fmetadata.jsonl?token={token}")
     assert bad.status_code == 404
+
+
+def test_workspaces_save_list_get_delete(client):
+    h = _login(client)
+    token = h["authorization"].split()[1]
+    cfg = {"name": "My Project", "master_prompt": "KEEP IT", "agents": [
+        {"provider": "mock", "model": "mock-v1", "prompt": "studio", "images": 20},
+    ]}
+    r = client.post(
+        "/api/workspaces", headers=h,
+        data={"config": json.dumps(cfg)},
+        files=[("references", ("p.png", _png_bytes(), "image/png"))],
+    )
+    assert r.status_code == 200
+    wid = r.json()["id"]
+
+    lst = client.get("/api/workspaces", headers=h).json()["workspaces"]
+    assert any(w["id"] == wid and w["name"] == "My Project" and w["refs"] == 1 for w in lst)
+
+    got = client.get(f"/api/workspaces/{wid}", headers=h).json()
+    assert got["master_prompt"] == "KEEP IT" and len(got["agents"]) == 1
+    assert len(got["refs"]) == 1
+
+    img = client.get(f"/api/workspaces/{wid}/ref/{got['refs'][0]}?token={token}")
+    assert img.status_code == 200 and len(img.content) > 0
+
+    # auth gate + traversal safety
+    assert client.get(f"/api/workspaces/{wid}").status_code == 401
+    assert client.get(f"/api/workspaces/{wid}/ref/..%2f..%2fworkspace.json?token={token}").status_code == 404
+
+    assert client.delete(f"/api/workspaces/{wid}", headers=h).json()["deleted"] is True
+    assert client.get(f"/api/workspaces/{wid}", headers=h).status_code == 404

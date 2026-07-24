@@ -1,4 +1,4 @@
-from product_image_batch.core.config import AppConfig, load_config
+from product_image_batch.core.config import AppConfig, apply_env_overrides, load_config
 
 
 def test_load_config_has_all_providers():
@@ -8,10 +8,25 @@ def test_load_config_has_all_providers():
         assert name in cfg.providers
 
 
-def test_openai_defaults_are_tier_safe():
+def test_openai_defaults_allow_real_parallelism():
+    # Defaults favour visible parallelism for real (paid) accounts; Tier-1
+    # accounts that hit 429s can dial these down via PIB_OPENAI_* env vars.
     cfg = load_config()
-    assert cfg.provider("openai").max_concurrent == 2
-    assert cfg.provider("openai").rate_limit_per_minute == 5
+    assert cfg.provider("openai").max_concurrent == 6
+    assert cfg.provider("openai").rate_limit_per_minute == 50
+
+
+def test_env_overrides_concurrency_and_rate():
+    cfg = load_config()
+    apply_env_overrides(cfg, env={
+        "PIB_GLOBAL_MAX_CONCURRENT": "40",
+        "PIB_OPENAI_CONCURRENCY": "12",
+        "PIB_OPENAI_RPM": "0",  # 0 disables the rate limit
+    })
+    assert cfg.global_max_concurrent == 40
+    assert cfg.provider("openai").max_concurrent == 12
+    assert cfg.provider("openai").rate_limit_per_minute is None
+    assert cfg.provider("openai").rate_per_second() is None
 
 
 def test_stability_rate_window():

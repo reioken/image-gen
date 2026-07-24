@@ -18,6 +18,7 @@ short-lived HMAC-signed strings; keys never leave the server.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -42,6 +43,9 @@ log = get_logger("web.server")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 TOKEN_TTL_SECONDS = 12 * 3600
+# How often to emit an SSE keepalive comment when no real event is pending.
+# Must stay well under typical proxy idle timeouts (Cloudflare ~100s, Render ~).
+HEARTBEAT_SECONDS = 15
 
 # --- auth helpers ----------------------------------------------------------
 
@@ -183,10 +187,19 @@ def create_app() -> FastAPI:
 
         async def gen():
             yield _sse({"type": "hello", "run_id": run_id, "total": state.total})
+            # Heartbeat: image generation can take a long time, during which no
+            # progress event is produced. Without periodic bytes on the wire,
+            # proxies/load balancers (Render, Cloudflare, …) close the idle
+            # connection and the browser reports "connection lost". Send an SSE
+            # comment line every few seconds so the stream never goes silent.
             while True:
                 if await request.is_disconnected():
                     break
-                event = await state.queue.get()
+                try:
+                    event = await asyncio.wait_for(state.queue.get(), timeout=HEARTBEAT_SECONDS)
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+                    continue
                 yield _sse(event)
                 if event.get("type") == "done":
                     break

@@ -174,6 +174,43 @@ class AppConfig(BaseModel):
         return self
 
 
+def apply_env_overrides(config: "AppConfig", env: dict[str, str] | None = None) -> "AppConfig":
+    """Overlay concurrency/rate-limit overrides from environment variables.
+
+    Lets a self-hosted deployment (e.g. Render) tune parallelism without editing
+    code or shipping a ``settings.json``:
+
+    * ``PIB_GLOBAL_MAX_CONCURRENT`` — the app-wide concurrency cap.
+    * ``PIB_<PROVIDER>_CONCURRENCY`` — per-provider concurrency, e.g.
+      ``PIB_OPENAI_CONCURRENCY=10``.
+    * ``PIB_<PROVIDER>_RPM`` — per-provider requests/minute, e.g.
+      ``PIB_OPENAI_RPM=120`` (``0`` disables the rate limit for that provider).
+    """
+    env = env if env is not None else dict(os.environ)
+
+    def _int(name: str) -> int | None:
+        raw = env.get(name, "").strip()
+        try:
+            return int(raw) if raw else None
+        except ValueError:
+            return None
+
+    gmc = _int("PIB_GLOBAL_MAX_CONCURRENT")
+    if gmc and gmc > 0:
+        config.global_max_concurrent = gmc
+
+    for name, prov in config.providers.items():
+        key = name.upper()
+        conc = _int(f"PIB_{key}_CONCURRENCY")
+        if conc and conc > 0:
+            prov.max_concurrent = conc
+        rpm = _int(f"PIB_{key}_RPM")
+        if rpm is not None:
+            prov.rate_limit_per_minute = float(rpm) if rpm > 0 else None
+            prov.rate_limit_per_10s = None
+    return config
+
+
 def load_config(path: str | Path | None = None) -> AppConfig:
     """Load provider config from YAML into an :class:`AppConfig`."""
     cfg_path = Path(path) if path else DEFAULT_CONFIG_PATH

@@ -176,13 +176,49 @@ function setAgentStatus(promptId, text, state) {
   el.textContent = text;
   el.dataset.state = state || "";
 }
+
+// --- per-agent elapsed timer (so a slow provider still shows it is working) --
+function fmtElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
+}
+function startAgentTimer(row) {
+  if (!row || row._timer) return;
+  row._startTs = performance.now();
+  const tick = () => {
+    const done = parseInt(row.dataset.done || "0", 10);
+    const expected = parseInt(row.dataset.expected || "1", 10);
+    const el = row.querySelector(".agent-status");
+    el.dataset.state = "run";
+    el.textContent = `generiert… ${fmtElapsed(performance.now() - row._startTs)} (${done}/${expected})`;
+  };
+  tick();
+  row._timer = setInterval(tick, 1000);
+}
+function stopAgentTimer(row) {
+  if (row && row._timer) { clearInterval(row._timer); row._timer = null; }
+}
 function initAgentProgress() {
   document.querySelectorAll(".agent").forEach(row => {
+    stopAgentTimer(row);
     const expected = parseInt(row.querySelector(".images").value || "1", 10);
     row.dataset.expected = expected;
     row.dataset.done = 0;
     setAgentBar(row, 0);
   });
+}
+
+// --- overall run progress bar -------------------------------------------
+function setOverallProgress(done, total) {
+  const wrap = $("#overall");
+  if (!wrap) return;
+  wrap.hidden = total <= 0;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  const bar = $("#overall-bar > span");
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  const label = $("#overall-count");
+  if (label) label.textContent = `${done}/${total}`;
 }
 function setAgentBar(row, pct) {
   const bar = row.querySelector(".agent-progress > span");
@@ -448,57 +484,95 @@ async function startRun() {
   setStatus("Starte…");
   $("#gallery").innerHTML = "";
   initAgentProgress();
-  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet"; s.dataset.state = ""; });
-  const res = await fetch(api("/api/run"), { method: "POST", headers: authHeaders(), body: fd });
+  setOverallProgress(0, 0);
+  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet", s.dataset.state = ""; });
+  let res;
+  try {
+    res = await fetch(api("/api/run"), { method: "POST", headers: authHeaders(), body: fd });
+  } catch (ex) {
+    setStatus("Start fehlgeschlagen: " + ex.message); toast("Start fehlgeschlagen", "error"); return;
+  }
   if (!res.ok) { setStatus("Fehler: " + (await res.text())); toast("Start fehlgeschlagen", "error"); return; }
   const { run_id, total } = await res.json();
   CURRENT_RUN = run_id;
   $("#start").disabled = true;
   $("#stop").disabled = false;
   setStatus(`läuft — 0/${total}`);
+  setOverallProgress(0, total);
+  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "in Warteschlange"; s.dataset.state = "queue"; });
   toast(`Lauf gestartet — ${total} Bild(er)`, "info");
   streamEvents(run_id, total);
+}
+
+function finishRun() {
+  document.querySelectorAll(".agent").forEach(stopAgentTimer);
+  $("#start").disabled = false; $("#stop").disabled = true;
+  if (EVT) { EVT.close(); EVT = null; }
 }
 
 function streamEvents(runId, total) {
   if (EVT) EVT.close();
   let done = 0;
-  EVT = new EventSource(api(`/api/run/${runId}/events?token=${encodeURIComponent(store.token)}`));
+  let finished = false;
+  const url = api(`/api/run/${runId}/events?token=${encodeURIComponent(store.token)}`);
+  EVT = new EventSource(url);
+  EVT.onopen = () => {
+    // Cleared after a reconnect so the "reconnecting" notice goes away.
+    if (!finished && done < total) setStatus(`läuft — ${done}/${total}`);
+  };
   EVT.onmessage = (e) => {
     const ev = JSON.parse(e.data);
-    if (ev.type === "started") {
-      const row = rowForPrompt(ev.prompt_id);
-      const p = row ? `läuft (${row.dataset.done || 0}/${row.dataset.expected || 1})` : "läuft…";
-      setAgentStatus(ev.prompt_id, p, "run");
+    if (ev.type === "queued") {
+      setAgentStatus(ev.prompt_id, "in Warteschlange", "queue");
+    }
+    else if (ev.type === "running") {
+      startAgentTimer(rowForPrompt(ev.prompt_id));
     }
     else if (ev.type === "image") {
       const n = ev.images.length;
       for (const img of ev.images) addResult(runId, img.file);
       const prog = bumpAgentProgress(ev.prompt_id, n);
-      if (prog) setAgentStatus(ev.prompt_id, prog.done >= prog.expected ? "✓ fertig" : `läuft (${prog.done}/${prog.expected})`, prog.done >= prog.expected ? "ok" : "run");
-      done += n; setStatus(`läuft — ${done}/${total}`);
+      const row = rowForPrompt(ev.prompt_id);
+      if (prog && prog.done >= prog.expected) {
+        stopAgentTimer(row);
+        setAgentStatus(ev.prompt_id, `✓ fertig (${prog.done}/${prog.expected})`, "ok");
+      } else if (prog) {
+        setAgentStatus(ev.prompt_id, `generiert… (${prog.done}/${prog.expected})`, "run");
+      }
+      done += n; setStatus(`läuft — ${done}/${total}`); setOverallProgress(done, total);
       if (ev.budget) updateBudget(ev.budget);
     }
     else if (ev.type === "failed") {
+      stopAgentTimer(rowForPrompt(ev.prompt_id));
       setAgentStatus(ev.prompt_id, "✕ " + ev.error, "err");
       toast(`Fehler bei ${ev.prompt_id}: ${ev.error}`, "error");
-      done++; setStatus(`läuft — ${done}/${total}`);
+      done++; setStatus(`läuft — ${done}/${total}`); setOverallProgress(done, total);
     }
-    else if (ev.type === "skipped") { setAgentStatus(ev.prompt_id, "übersprungen", "warn"); done++; }
+    else if (ev.type === "skipped") {
+      stopAgentTimer(rowForPrompt(ev.prompt_id));
+      setAgentStatus(ev.prompt_id, "übersprungen", "warn");
+      done++; setOverallProgress(done, total);
+    }
     else if (ev.type === "done") {
+      finished = true;
       setStatus(`fertig — ${ev.succeeded} ok, ${ev.failed} Fehler, ${ev.skipped} übersprungen`);
+      setOverallProgress(total, total);
       if (ev.budget) updateBudget(ev.budget);
-      $("#start").disabled = false; $("#stop").disabled = true;
+      finishRun();
       const kind = ev.failed ? "warn" : "success";
       toast(`Fertig — ${ev.succeeded} ok${ev.failed ? `, ${ev.failed} Fehler` : ""}${ev.skipped ? `, ${ev.skipped} übersprungen` : ""}`, kind, 6000);
       if (!document.querySelector(".gallery img")) {
         $("#gallery").innerHTML = '<p class="empty muted">Keine Bilder erzeugt — prüfe Provider-Key & Prompt.</p>';
       }
-      EVT.close(); EVT = null;
     }
     else if (ev.type === "error") { setStatus("Fehler: " + ev.message); toast(ev.message, "error"); }
   };
-  EVT.onerror = () => { setStatus("Verbindung unterbrochen."); toast("Verbindung unterbrochen", "error"); $("#start").disabled = false; $("#stop").disabled = true; };
+  EVT.onerror = () => {
+    // EventSource auto-reconnects; the server keeps the run's event queue, so a
+    // dropped connection is recoverable. Only give up once the run is truly done.
+    if (finished) { finishRun(); return; }
+    setStatus(`Verbindung wird wiederhergestellt… — ${done}/${total}`);
+  };
 }
 
 function addResult(runId, filename) {

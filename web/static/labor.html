@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Labor · Product Image Batch</title>
+  <meta name="description" content="Experiment: parallele Produktbild-Generierung aus Referenzbildern über viele Bild-APIs." />
+  <style>
+    :root{
+      --bg:#0a0c15; --bg2:#0e111c; --text:#eef0f6; --muted:#9aa3b8;
+      --panel:rgba(255,255,255,.045); --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.16);
+      --accent:#8b9cf5; --grad:linear-gradient(120deg,#9b7ef2,#8b7ff2 45%,#7aa8ff);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
+      font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+      -webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+    .glow{position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+      radial-gradient(60vw 60vw at 15% -10%,rgba(155,126,242,.22),transparent 60%),
+      radial-gradient(55vw 55vw at 100% 0%,rgba(122,168,255,.16),transparent 55%),
+      radial-gradient(50vw 50vw at 50% 120%,rgba(139,127,242,.16),transparent 60%)}
+    .wrap{max-width:920px;margin:0 auto;padding:2rem 1.3rem 4rem}
+    header{display:flex;align-items:center;gap:.7rem;padding:.4rem 0 2.5rem}
+    .logo{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--grad);color:#fff;font-weight:800;box-shadow:0 8px 30px rgba(139,127,242,.4)}
+    .brand small{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase}
+    .brand b{font-size:.98rem}
+    .back{margin-left:auto;color:var(--muted);text-decoration:none;font-size:.85rem;border:1px solid var(--border);padding:.45rem .85rem;border-radius:10px}
+    .back:hover{border-color:var(--border2);color:var(--text)}
+    .eyebrow{color:var(--accent);font-weight:700;letter-spacing:.2em;text-transform:uppercase;font-size:.78rem;margin:0 0 1rem}
+    h1{margin:0;font-size:clamp(2.4rem,7vw,4.4rem);line-height:1.02;font-weight:800;text-transform:uppercase;letter-spacing:-.02em;
+      background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lede{font-size:1.15rem;color:#c6cbd8;max-width:640px;margin:1.2rem 0 2rem}
+    .cta{display:flex;flex-wrap:wrap;gap:.8rem;margin:1.5rem 0 3rem}
+    .btn{display:inline-flex;align-items:center;gap:.5rem;font-weight:700;text-decoration:none;padding:.85rem 1.6rem;border-radius:999px;transition:.18s}
+    .btn.primary{background:var(--grad);color:#fff;box-shadow:0 10px 34px rgba(139,127,242,.42)}
+    .btn.primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+    .btn.ghost{color:var(--text);border:1px solid var(--border2);background:var(--panel)}
+    .btn.ghost:hover{border-color:var(--accent)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;margin-top:1rem}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:1.2rem;
+      -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+    .card h3{margin:.2rem 0 .4rem;font-size:1rem}
+    .card p{margin:0;color:var(--muted);font-size:.92rem}
+    .dot{width:9px;height:9px;border-radius:50%;background:var(--grad);display:inline-block;margin-right:.5rem}
+    footer{margin-top:3rem;color:var(--muted);font-size:.85rem;border-top:1px solid var(--border);padding-top:1.4rem}
+    @media(prefers-color-scheme:light){:root{--bg:#eef1f7;--bg2:#e7ebf3;--text:#0f1320;--muted:#5a6274;--panel:rgba(255,255,255,.7);--border:rgba(15,19,32,.1);--border2:rgba(15,19,32,.18)}.lede{color:#39415a}}
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="wrap">
+    <header>
+      <span class="logo">✦</span>
+      <span class="brand"><b>Dennis Bierreth-Fernandez</b><small>Labor · Experiment</small></span>
+      <!-- Passe den Link an deine Startseite an -->
+      <a class="back" href="/">← zurück</a>
+    </header>
+
+    <p class="eyebrow">Labor · Experiment</p>
+    <h1>Product Image Batch</h1>
+    <p class="lede">
+      Aus einem Produkt-Referenzbild und vielen Prompts entstehen parallel
+      Produktbild-Varianten — über mehrere Bild-APIs gleichzeitig. Mit
+      Master-Prompt für Konsistenz, Live-Ergebnissen und passwortgeschütztem Zugang.
+    </p>
+
+    <div class="cta">
+      <!-- TODO: Ersetze die URL durch deine deployte App (z. B. https://app.dennisbf.design) -->
+      <a class="btn primary" href="https://app.dennisbf.design">App öffnen →</a>
+      <a class="btn ghost" href="https://github.com/reioken/image-gen">Auf GitHub ansehen</a>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h3><span class="dot"></span>Parallel</h3><p>Viele Prompts × mehrere Provider gleichzeitig — rate-limit-sicher.</p></div>
+      <div class="card"><h3><span class="dot"></span>Referenzbilder</h3><p>Dein Produkt bleibt identisch; nur Szene, Licht und Kamera ändern sich.</p></div>
+      <div class="card"><h3><span class="dot"></span>Master-Prompt</h3><p>Eine globale Konsistenz-Regel für alle Agenten eines Laufs.</p></div>
+      <div class="card"><h3><span class="dot"></span>Multi-Provider</h3><p>OpenAI, Google, FLUX, fal, Replicate, Stability, Ideogram, Recraft, Leonardo.</p></div>
+    </div>
+
+    <footer>
+      Passwortgeschützt · API-Keys bleiben serverseitig · gebaut als eigenes Product-Build-Experiment.
+    </footer>
+  </div>
+</body>
+</html>

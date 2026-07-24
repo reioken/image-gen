@@ -35,6 +35,22 @@ from product_image_batch.core.utils.logging import get_logger
 
 log = get_logger("web.runmanager")
 
+# Rough representative $/image per provider (~1024px), for the UI cost preview
+# only. Real billing depends on model/size/quality.
+_PRICE_HINTS: dict[str, float] = {
+    "openai": 0.17,   # gpt-image high @ 1024
+    "google": 0.04,
+    "bfl": 0.05,
+    "stability": 0.04,
+    "fal": 0.05,
+    "replicate": 0.04,
+    "ideogram": 0.08,
+    "recraft": 0.04,
+    "leonardo": 0.02,
+    "freepik": 0.04,
+    "mock": 0.01,
+}
+
 
 @dataclass
 class RunState:
@@ -99,6 +115,9 @@ class RunManager:
                 "has_key": has_key,
                 "supports_masks": prov.supports_masks,
                 "supports_reference_images": prov.supports_reference_images,
+                # Rough $/image hint for the pre-start cost preview only. Real
+                # billing depends on model/size/quality; treated as an estimate.
+                "price_per_image": _PRICE_HINTS.get(name, 0.05),
             })
         return out
 

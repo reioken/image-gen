@@ -241,6 +241,28 @@ def create_app() -> FastAPI:
             return FileResponse(tpath, headers=headers)
         return FileResponse(path, headers=headers)
 
+    # --- download every image of a run as one ZIP ---
+    @app.get("/api/run/{run_id}/download")
+    async def download_zip(run_id: str, request: Request) -> FileResponse:
+        if not verify_token(_token_from_request(request)):
+            raise HTTPException(status_code=401, detail="unauthorized")
+        state = manager.get_run(run_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail="unknown run")
+        images_dir = state.out_dir / "images"
+        files = sorted(p for p in images_dir.glob("*") if p.is_file()) if images_dir.exists() else []
+        if not files:
+            raise HTTPException(status_code=404, detail="no images yet")
+        zpath = state.out_dir / "all_images.zip"
+        newest = max(p.stat().st_mtime for p in files)
+        # Rebuild only when new images have arrived since the zip was built.
+        if (not zpath.exists()) or zpath.stat().st_mtime < newest:
+            await asyncio.to_thread(_build_zip, zpath, files)
+        return FileResponse(
+            zpath, media_type="application/zip", filename=f"{run_id}.zip",
+            headers={"Cache-Control": "private, max-age=60"},
+        )
+
     @app.get("/api/health")
     async def health() -> dict:
         return {"ok": True, "auth_required": bool(_password())}
@@ -266,6 +288,17 @@ async def _save_uploads(files: list, dest: Path, prefix: str) -> list[Path]:
         target.write_bytes(data)
         out.append(target)
     return out
+
+
+def _build_zip(zpath: Path, files: list[Path]) -> None:
+    """Write ``files`` into a zip at ``zpath`` (run off the event loop)."""
+    import zipfile
+
+    tmp = zpath.with_suffix(".zip.tmp")
+    with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_STORED) as zf:
+        for p in files:
+            zf.write(p, arcname=p.name)
+    tmp.replace(zpath)  # atomic swap so a concurrent read never sees a half file
 
 
 def _sse(obj: dict) -> str:

@@ -25,6 +25,50 @@ const DEFAULT_IMAGES = 20;
 let RESULT_COUNT = 0;   // images shown in the current run's gallery
 let FAVORITES = new Set();   // favourite filenames for the current run
 
+// --- master-prompt templates ---------------------------------------------
+const MASTER_CORE = `PRODUCT CONSISTENCY (applies to every image):
+- Keep the exact same product in every image: identical shape, proportions, size ratios, materials, colors, textures and finish.
+- Preserve all branding exactly — logo, label text, typography, icons and their placement. Do not alter, translate, reflow, blur or invent any text.
+- Do not add, remove, duplicate or swap any product part (cap, lid, nozzle, seams, labels).
+- Only the scene may change: background, surface, lighting, camera angle, styling and props.
+
+NO ADDED TEXT:
+- Do not add any text, captions, headlines, words, letters, watermarks, signatures, stickers or extra logos anywhere in the image; keep the background and scene free of writing. Only text physically printed on the product stays — never add, translate or invent text.`;
+
+const MASTER_TEMPLATES = {
+  studio: `${MASTER_CORE}
+
+SETTING & STYLE (Studio-Packshot):
+- Clean seamless studio background, high-end commercial product photography.
+- Soft key light with believable soft shadows and accurate reflections; neutral, true-to-life color.
+- Product tack-sharp, hero angle, shallow depth of field. High resolution, crisp detail, no distortions.`,
+  lifestyle: `${MASTER_CORE}
+
+SETTING & STYLE (Lifestyle):
+- Real-world lifestyle scene with natural, story-telling context and props that fit the product.
+- Natural daylight or warm ambient light, gentle bokeh, believable environment and surfaces.
+- Photorealistic, editorial feel; the product stays the clear hero and tack-sharp.`,
+  social: `${MASTER_CORE}
+
+SETTING & STYLE (Social Ad):
+- Bold, vibrant, scroll-stopping composition for social feeds; punchy color and contrast.
+- Dynamic angle, generous clean negative space for later text overlays (but add NO text yourself).
+- Modern look, strong lighting, product crisp and prominent.`,
+  market: `${MASTER_CORE}
+
+SETTING & STYLE (Marktplatz / E-Commerce):
+- Pure white seamless background, even shadowless catalog lighting.
+- Straight-on or slight hero angle, product centered and fully in frame with small margins.
+- Neutral true color, maximum clarity and detail, marketplace-compliant packshot.`,
+};
+
+function applyMasterTemplate(key) {
+  const t = MASTER_TEMPLATES[key];
+  if (!t) return;
+  $("#master-prompt").value = t;
+  toast("Master-Vorlage eingesetzt — bei Bedarf anpassen", "success");
+}
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const api = (path) => `${store.apiBase}${path}`;
 
@@ -493,8 +537,17 @@ function closeLightbox() {
 }
 
 // --- run -----------------------------------------------------------------
-async function startRun() {
-  const agents = collectAgents().filter(a => a.prompt);
+const TEST_RUN_IMAGES = 2;
+
+async function startRun(opts = {}) {
+  const testRun = !!opts.testRun;
+  // Full agent list (indices must line up with the backend); optionally cap the
+  // image count for a quick, cheap test run.
+  let agentsFull = collectAgents();
+  if (testRun) {
+    agentsFull = agentsFull.map(a => ({ ...a, images: Math.min(parseInt(a.images, 10) || 1, TEST_RUN_IMAGES) }));
+  }
+  const agents = agentsFull.filter(a => a.prompt);
   if (REFERENCES.length === 0) { setStatus("Mindestens ein Referenzbild nötig."); return; }
   if (agents.length === 0) { setStatus("Mindestens ein Agent mit Prompt nötig."); return; }
 
@@ -512,17 +565,18 @@ async function startRun() {
     const warn = est > rem ? ' <span class="danger">— könnte den Deckel sprengen</span>' : "";
     budgetLine = `<br>Budget übrig: ~$${rem.toFixed(2)} von $${b.max_total_cost_usd.toFixed(2)}${warn}`;
   }
+  const testLine = testRun ? `<br><span class="muted">Testlauf: nur ${TEST_RUN_IMAGES} Varianten je Set.</span>` : "";
   const ok = await confirmRun(
     `<b>${totalImages} Bild${totalImages === 1 ? "" : "er"}</b> über ${agents.length} Agent${agents.length === 1 ? "" : "en"}.` +
-    `<br>Geschätzte Kosten: <b>~$${est.toFixed(2)}</b> <span class="muted">(grobe Schätzung, je nach Modell/Größe)</span>${budgetLine}`
+    `<br>Geschätzte Kosten: <b>~$${est.toFixed(2)}</b> <span class="muted">(grobe Schätzung, je nach Modell/Größe)</span>${budgetLine}${testLine}`
   );
   if (!ok) { setStatus("abgebrochen."); return; }
 
   const fd = new FormData();
   fd.append("config", JSON.stringify({
-    name: "web-run",
+    name: testRun ? "web-testrun" : "web-run",
     master_prompt: $("#master-prompt").value,
-    agents: collectAgents(),   // full list so indices line up with backend
+    agents: agentsFull,   // full list so indices line up with backend
   }));
   REFERENCES.forEach(f => fd.append("references", f, f.name));
   if (MASK) fd.append("mask", MASK, MASK.name);
@@ -547,6 +601,7 @@ async function startRun() {
   CURRENT_RUN = run_id;
   loadFavorites(); updateResultsToolbar();
   $("#start").disabled = true;
+  $("#test-run").disabled = true;
   $("#stop").disabled = false;
   setStatus(`läuft — 0/${total}`);
   setOverallProgress(0, total);
@@ -557,7 +612,7 @@ async function startRun() {
 
 function finishRun() {
   document.querySelectorAll(".agent").forEach(stopAgentTimer);
-  $("#start").disabled = false; $("#stop").disabled = true;
+  $("#start").disabled = false; $("#test-run").disabled = false; $("#stop").disabled = true;
   if (EVT) { EVT.close(); EVT = null; }
 }
 
@@ -845,8 +900,11 @@ function wire() {
   $("#reset-master").addEventListener("click", () => $("#master-prompt").value = CONFIG.default_master_prompt || "");
   $("#clear-master").addEventListener("click", () => $("#master-prompt").value = "");
   $("#add-agent").addEventListener("click", () => addAgent());
-  $("#start").addEventListener("click", startRun);
+  $("#start").addEventListener("click", () => startRun());
+  $("#test-run").addEventListener("click", () => startRun({ testRun: true }));
   $("#stop").addEventListener("click", stopRun);
+  document.querySelectorAll(".tmpl").forEach(btn =>
+    btn.addEventListener("click", () => applyMasterTemplate(btn.dataset.tmpl)));
   $("#download-zip").addEventListener("click", downloadAllZip);
   $("#download-fav").addEventListener("click", downloadFavorites);
   $("#filter-fav").addEventListener("click", toggleFavFilter);

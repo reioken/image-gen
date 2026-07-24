@@ -31,7 +31,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from starlette.datastructures import UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from product_image_batch.core.prompting import DEFAULT_MASTER_PROMPT
@@ -250,14 +250,31 @@ def create_app() -> FastAPI:
         if state is None:
             raise HTTPException(status_code=404, detail="unknown run")
         images_dir = state.out_dir / "images"
-        files = sorted(p for p in images_dir.glob("*") if p.is_file()) if images_dir.exists() else []
-        if not files:
+        all_files = sorted(p for p in images_dir.glob("*") if p.is_file()) if images_dir.exists() else []
+        if not all_files:
             raise HTTPException(status_code=404, detail="no images yet")
+
+        # Optional subset (e.g. only the favourites): ?files=name1,name2
+        subset = request.query_params.get("files")
+        if subset:
+            wanted = {Path(n).name for n in subset.split(",") if n.strip()}
+            sel = [p for p in all_files if p.name in wanted]
+            if not sel:
+                raise HTTPException(status_code=404, detail="none of the selected images exist")
+            data = await asyncio.to_thread(_zip_bytes, sel)
+            return Response(
+                content=data, media_type="application/zip",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{run_id}-favoriten.zip"',
+                    "Cache-Control": "no-store",
+                },
+            )
+
         zpath = state.out_dir / "all_images.zip"
-        newest = max(p.stat().st_mtime for p in files)
+        newest = max(p.stat().st_mtime for p in all_files)
         # Rebuild only when new images have arrived since the zip was built.
         if (not zpath.exists()) or zpath.stat().st_mtime < newest:
-            await asyncio.to_thread(_build_zip, zpath, files)
+            await asyncio.to_thread(_build_zip, zpath, all_files)
         return FileResponse(
             zpath, media_type="application/zip", filename=f"{run_id}.zip",
             headers={"Cache-Control": "private, max-age=60"},
@@ -299,6 +316,18 @@ def _build_zip(zpath: Path, files: list[Path]) -> None:
         for p in files:
             zf.write(p, arcname=p.name)
     tmp.replace(zpath)  # atomic swap so a concurrent read never sees a half file
+
+
+def _zip_bytes(files: list[Path]) -> bytes:
+    """Build a zip of ``files`` in memory (used for small favourite subsets)."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        for p in files:
+            zf.write(p, arcname=p.name)
+    return buf.getvalue()
 
 
 def _sse(obj: dict) -> str:

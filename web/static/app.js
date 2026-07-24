@@ -23,6 +23,7 @@ let EVT = null;
 const DEFAULT_IMAGES = 20;
 
 let RESULT_COUNT = 0;   // images shown in the current run's gallery
+let FAVORITES = new Set();   // favourite filenames for the current run
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const api = (path) => `${store.apiBase}${path}`;
@@ -151,8 +152,9 @@ function addAgent(preset) {
   const size = (preset && preset.size) || d.size;
   if (size) row.querySelector(".size").value = size;
 
-  row.querySelector(".remove").addEventListener("click", () => row.remove());
+  row.querySelector(".remove").addEventListener("click", () => { row.remove(); updateScope(); });
   $("#agents").appendChild(row);
+  updateScope();
   return row;
 }
 
@@ -464,6 +466,7 @@ function applyAuto() {
     });
   });
   closeAuto();
+  updateScope();
   const total = prompts.length * providers.length;
   toast(`${total} Agent(en) angelegt — ${prompts.length} Prompt(s) × ${providers.length} Provider${master ? " + Master-Prompt" : ""}`, "success");
 }
@@ -525,11 +528,14 @@ async function startRun() {
   if (MASK) fd.append("mask", MASK, MASK.name);
 
   setStatus("Starte…");
-  $("#gallery").innerHTML = "";
-  RESULT_COUNT = 0; updateResultsToolbar();
+  const gal = $("#gallery");
+  gal.innerHTML = ""; gal.classList.remove("only-fav");
+  $("#filter-fav").setAttribute("aria-pressed", "false");
+  $("#filter-fav").classList.remove("active");
+  RESULT_COUNT = 0; FAVORITES = new Set();
   initAgentProgress();
   setOverallProgress(0, 0);
-  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet", s.dataset.state = ""; });
+  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet auf Anbieter", s.dataset.state = "queue"; });
   let res;
   try {
     res = await fetch(api("/api/run"), { method: "POST", headers: authHeaders(), body: fd });
@@ -539,11 +545,12 @@ async function startRun() {
   if (!res.ok) { setStatus("Fehler: " + (await res.text())); toast("Start fehlgeschlagen", "error"); return; }
   const { run_id, total } = await res.json();
   CURRENT_RUN = run_id;
+  loadFavorites(); updateResultsToolbar();
   $("#start").disabled = true;
   $("#stop").disabled = false;
   setStatus(`läuft — 0/${total}`);
   setOverallProgress(0, total);
-  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "in Warteschlange"; s.dataset.state = "queue"; });
+  document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet auf Anbieter"; s.dataset.state = "queue"; });
   toast(`Lauf gestartet — ${total} Bild(er)`, "info");
   streamEvents(run_id, total);
 }
@@ -567,7 +574,7 @@ function streamEvents(runId, total) {
   EVT.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     if (ev.type === "queued") {
-      setAgentStatus(ev.prompt_id, "in Warteschlange", "queue");
+      setAgentStatus(ev.prompt_id, "wartet auf Anbieter", "queue");
     }
     else if (ev.type === "running") {
       startAgentTimer(rowForPrompt(ev.prompt_id));
@@ -667,11 +674,23 @@ function addResult(runId, filename, promptId, provider) {
   const thumb = base + "&thumb=1";
   const a = document.createElement("a");
   a.href = full;
+  a.className = "result-item";
+  if (FAVORITES.has(filename)) a.classList.add("is-fav");
   // Grid shows a lightweight thumbnail; the lightbox opens the full image.
   a.addEventListener("click", (e) => { e.preventDefault(); openLightbox(full); });
   const img = document.createElement("img");
   img.src = thumb; img.loading = "lazy"; img.decoding = "async";
-  a.appendChild(img);
+  img.alt = `Ergebnis ${provider || ""} ${promptId || ""}`.trim();
+  // Favourite star (always visible on touch; hover on desktop).
+  const star = document.createElement("button");
+  star.className = "fav-star";
+  star.type = "button";
+  star.textContent = "★";
+  star.title = "Als Favorit markieren";
+  star.setAttribute("aria-label", "Als Favorit markieren");
+  star.setAttribute("aria-pressed", FAVORITES.has(filename) ? "true" : "false");
+  star.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(filename, a); });
+  a.append(img, star);
   grid.appendChild(a);
   g.dataset.n = String((parseInt(g.dataset.n, 10) || 0) + 1);
   g.querySelector(".rg-count").textContent = g.dataset.n;
@@ -697,12 +716,16 @@ function updateBudget(b) {
 function updateResultsToolbar() {
   const c = $("#results-count");
   const z = $("#download-zip");
-  if (RESULT_COUNT > 0) {
-    c.hidden = false; c.textContent = `${RESULT_COUNT} Bild${RESULT_COUNT === 1 ? "" : "er"}`;
-    z.hidden = false;
-  } else {
-    c.hidden = true; z.hidden = true;
-  }
+  const ff = $("#filter-fav");
+  const df = $("#download-fav");
+  const hasImages = RESULT_COUNT > 0;
+  c.hidden = !hasImages;
+  z.hidden = !hasImages;
+  if (hasImages) c.textContent = `${RESULT_COUNT} Bild${RESULT_COUNT === 1 ? "" : "er"}`;
+  const favN = FAVORITES.size;
+  ff.hidden = !hasImages;
+  df.hidden = favN === 0;
+  if (favN) df.textContent = `⬇ Favoriten (${favN})`;
 }
 function downloadAllZip() {
   if (!CURRENT_RUN || RESULT_COUNT === 0) return;
@@ -730,6 +753,59 @@ function closeConfirm(val) {
   if (_confirmResolve) { const r = _confirmResolve; _confirmResolve = null; r(val); }
 }
 
+// --- live run scope (updates as agents/counts change) --------------------
+function runScope() {
+  const agents = collectAgents().filter(a => a.prompt);
+  const images = agents.reduce((s, a) => s + (parseInt(a.images, 10) || 1), 0);
+  const est = agents.reduce((s, a) => {
+    const p = CONFIG.providers.find(x => x.name === a.provider);
+    const price = (p && p.price_per_image != null) ? p.price_per_image : 0.05;
+    return s + (parseInt(a.images, 10) || 1) * price;
+  }, 0);
+  return { count: agents.length, images, est };
+}
+function updateScope() {
+  const el = $("#scope");
+  if (!el) return;
+  const { count, images, est } = runScope();
+  el.textContent = count
+    ? `${images} Bild${images === 1 ? "" : "er"} · ${count} Set${count === 1 ? "" : "s"} · ~$${est.toFixed(2)}`
+    : "";
+}
+
+// --- favourites ----------------------------------------------------------
+function favKey() { return `pib_fav_${CURRENT_RUN || "none"}`; }
+function loadFavorites() {
+  try { FAVORITES = new Set(JSON.parse(localStorage.getItem(favKey()) || "[]")); }
+  catch { FAVORITES = new Set(); }
+}
+function saveFavorites() {
+  try { localStorage.setItem(favKey(), JSON.stringify([...FAVORITES])); } catch { /* ignore */ }
+}
+function toggleFavorite(filename, linkEl) {
+  if (FAVORITES.has(filename)) { FAVORITES.delete(filename); linkEl.classList.remove("is-fav"); }
+  else { FAVORITES.add(filename); linkEl.classList.add("is-fav"); }
+  const star = linkEl.querySelector(".fav-star");
+  if (star) star.setAttribute("aria-pressed", FAVORITES.has(filename) ? "true" : "false");
+  saveFavorites();
+  updateResultsToolbar();
+}
+function downloadFavorites() {
+  if (!CURRENT_RUN || FAVORITES.size === 0) return;
+  const list = [...FAVORITES].map(encodeURIComponent).join(",");
+  const url = api(`/api/run/${CURRENT_RUN}/download?token=${encodeURIComponent(store.token)}&files=${list}`);
+  const a = document.createElement("a");
+  a.href = url; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+  toast(`${FAVORITES.size} Favorit(en) als ZIP…`, "info");
+}
+function toggleFavFilter() {
+  const g = $("#gallery");
+  const on = g.classList.toggle("only-fav");
+  const btn = $("#filter-fav");
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.classList.toggle("active", on);
+}
+
 // --- boot ----------------------------------------------------------------
 async function enterApp() {
   await loadConfig();
@@ -738,6 +814,7 @@ async function enterApp() {
   $("#master-prompt").value = CONFIG.default_master_prompt || "";
   if (!document.querySelector(".agent")) addAgent();
   updateBudget(CONFIG.budget || {});
+  updateScope();
 }
 
 function wire() {
@@ -771,6 +848,10 @@ function wire() {
   $("#start").addEventListener("click", startRun);
   $("#stop").addEventListener("click", stopRun);
   $("#download-zip").addEventListener("click", downloadAllZip);
+  $("#download-fav").addEventListener("click", downloadFavorites);
+  $("#filter-fav").addEventListener("click", toggleFavFilter);
+  $("#agents").addEventListener("input", updateScope);
+  $("#agents").addEventListener("change", updateScope);
   // Confirm-before-start modal
   $("#confirm-ok").addEventListener("click", () => closeConfirm(true));
   $("#confirm-cancel").addEventListener("click", () => closeConfirm(false));

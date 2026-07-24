@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Product Image Batch</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=11" />
-  <link rel="apple-touch-icon" href="favicon-180.png?v=11" />
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="icon" type="image/png" href="favicon.png?v=12" />
+  <link rel="apple-touch-icon" href="favicon-180.png?v=12" />
+  <link rel="stylesheet" href="style.css?v=12" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -94,9 +94,10 @@
       </section>
 
       <section class="panel glass actions reveal">
-        <button id="start" class="primary">▶ Start</button>
-        <button id="stop" class="ghost" disabled>■ Stop</button>
-        <span id="status" class="muted"></span>
+        <button id="start" class="primary">▶ Generierung starten</button>
+        <button id="stop" class="ghost" disabled title="Fertige Bilder bleiben erhalten">■ Lauf stoppen</button>
+        <span id="scope" class="scope muted small"></span>
+        <span id="status" class="muted" aria-live="polite"></span>
         <div id="overall" class="overall" hidden>
           <div id="overall-bar" class="overall-bar"><span></span></div>
           <span id="overall-count" class="overall-count muted">0/0</span>
@@ -108,9 +109,11 @@
           <h2>Ergebnisse</h2>
           <span id="results-count" class="tag" hidden>0 Bilder</span>
           <span class="grow"></span>
+          <button id="filter-fav" class="ghost sm" hidden aria-pressed="false">★ Nur Favoriten</button>
+          <button id="download-fav" class="ghost sm" hidden>⬇ Favoriten</button>
           <button id="download-zip" class="ghost sm" hidden>⬇ Alle als ZIP</button>
         </div>
-        <div id="gallery" class="gallery-stack"><p class="empty muted">Noch keine Bilder — starte einen Lauf.</p></div>
+        <div id="gallery" class="gallery-stack"><p class="empty muted">Noch keine Ergebnisse. Nach dem Start erscheinen hier alle Varianten — gruppiert nach Prompt und KI-Anbieter.</p></div>
       </section>
     </main>
   </div>
@@ -120,24 +123,25 @@
     <div class="agent">
       <div class="agent-head">
         <strong class="agent-label">Agent</strong>
-        <label>Provider
+        <label>KI-Anbieter
           <select class="provider"></select>
         </label>
-        <label>Modell
-          <input class="model" list="" placeholder="modell-id" />
-        </label>
-        <label>Bilder
+        <label>Varianten
           <input class="images" type="number" min="1" max="100" value="20" />
         </label>
-        <button class="remove ghost icon" title="Entfernen">✕</button>
+        <button class="remove ghost icon" title="Set entfernen" aria-label="Set entfernen">✕</button>
       </div>
       <textarea class="prompt" rows="2" spellcheck="false" placeholder="Szene beschreiben. Produkt exakt lassen; nur Hintergrund, Licht, Kamera, Styling ändern…"></textarea>
-      <div class="agent-params">
-        <label>Größe <input class="size" value="1024x1024" /></label>
-        <label>Seed <input class="seed" placeholder="zufällig" /></label>
-        <label>Strength <input class="strength" placeholder="auto" /></label>
-        <span class="agent-status">idle</span>
-      </div>
+      <details class="agent-adv">
+        <summary>Erweiterte Optionen</summary>
+        <div class="agent-params">
+          <label>Modell <input class="model" list="" placeholder="Standardmodell" /></label>
+          <label>Größe <input class="size" value="1024x1024" /></label>
+          <label>Seed <input class="seed" placeholder="zufällig" /></label>
+          <label>Strength <input class="strength" placeholder="auto" /></label>
+        </div>
+      </details>
+      <div class="agent-statusrow"><span class="agent-status">bereit</span></div>
       <div class="agent-progress"><span></span></div>
     </div>
   </template>
@@ -261,6 +265,6 @@ PROMPTS:
     <img id="lightbox-img" alt="" />
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

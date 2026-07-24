@@ -6,6 +6,10 @@ const store = {
   set token(v) { v ? localStorage.setItem("pib_token", v) : localStorage.removeItem("pib_token"); },
   get apiBase() { return localStorage.getItem("pib_api_base") || ""; },
   set apiBase(v) { v ? localStorage.setItem("pib_api_base", v) : localStorage.removeItem("pib_api_base"); },
+  defaults() {
+    try { return JSON.parse(localStorage.getItem("pib_defaults") || "{}"); } catch { return {}; }
+  },
+  setDefaults(d) { localStorage.setItem("pib_defaults", JSON.stringify(d || {})); },
 };
 
 let CONFIG = { providers: [], default_master_prompt: "" };
@@ -127,15 +131,19 @@ function addAgent(preset) {
   }
   provSel.addEventListener("change", () => fillModels(provSel.value));
 
-  // preset defaults: pick first provider that has a key, else first
+  // defaults: preset (Auto-Fill/duplicate) wins, else saved settings defaults,
+  // else first provider that has a key.
+  const d = store.defaults();
   const withKey = CONFIG.providers.find(p => p.has_key) || CONFIG.providers[0];
-  provSel.value = (preset && preset.provider) || (withKey ? withKey.name : "openai");
+  provSel.value = (preset && preset.provider) || d.provider || (withKey ? withKey.name : "openai");
   fillModels(provSel.value);
-  if (preset) {
-    if (preset.model) modelInput.value = preset.model;
-    if (preset.prompt) row.querySelector(".prompt").value = preset.prompt;
-    if (preset.images) row.querySelector(".images").value = preset.images;
-  }
+  const model = (preset && preset.model) || d.model;
+  if (model) modelInput.value = model;
+  if (preset && preset.prompt) row.querySelector(".prompt").value = preset.prompt;
+  const images = (preset && preset.images) || d.images;
+  if (images) row.querySelector(".images").value = images;
+  const size = (preset && preset.size) || d.size;
+  if (size) row.querySelector(".size").value = size;
 
   row.querySelector(".remove").addEventListener("click", () => row.remove());
   $("#agents").appendChild(row);
@@ -202,6 +210,59 @@ function toast(message, type = "info", ms = 4200) {
   const kill = () => { el.classList.remove("show"); setTimeout(() => el.remove(), 300); };
   el.addEventListener("click", kill);
   setTimeout(kill, ms);
+}
+
+// --- Settings ------------------------------------------------------------
+function openSettings() {
+  // provider status
+  const host = $("#settings-providers");
+  host.innerHTML = CONFIG.providers
+    .filter(p => p.name !== "mock")
+    .map(p => `<div class="status-row"><span class="dot ${p.has_key ? "on" : "off"}"></span>
+      <span class="status-name">${p.name}</span>
+      <span class="status-tag ${p.has_key ? "on" : ""}">${p.has_key ? "aktiv" : "kein Key"}</span></div>`)
+    .join("");
+  // budget
+  const b = CONFIG.budget || {};
+  const cap = b.max_total_cost_usd ? `$${b.max_total_cost_usd.toFixed(2)}` : "kein Limit";
+  $("#settings-budget").textContent =
+    `Ausgegeben (geschätzt): $${(b.estimated_spend_usd || 0).toFixed(2)} · Deckel: ${cap}`;
+  // defaults
+  const d = store.defaults();
+  const setSel = $("#set-provider");
+  setSel.innerHTML = `<option value="">— erster mit Key —</option>` +
+    CONFIG.providers.map(p => `<option value="${p.name}">${p.name}${p.has_key ? "" : " (kein Key)"}</option>`).join("");
+  setSel.value = d.provider || "";
+  const syncSetModels = () => {
+    const p = CONFIG.providers.find(x => x.name === setSel.value);
+    $("#set-models").innerHTML = (p ? p.models : []).map(m => `<option value="${m}">`).join("");
+  };
+  setSel.onchange = syncSetModels; syncSetModels();
+  $("#set-model").value = d.model || "";
+  $("#set-images").value = d.images || 1;
+  $("#set-size").value = d.size || "1024x1024";
+  $("#set-apibase").value = store.apiBase;
+
+  const m = $("#settings");
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add("show"));
+}
+function closeSettings() {
+  const m = $("#settings");
+  m.classList.remove("show");
+  setTimeout(() => { m.hidden = true; }, 200);
+}
+function saveSettings() {
+  store.setDefaults({
+    provider: $("#set-provider").value || undefined,
+    model: $("#set-model").value.trim() || undefined,
+    images: parseInt($("#set-images").value || "1", 10),
+    size: $("#set-size").value.trim() || "1024x1024",
+  });
+  const newBase = $("#set-apibase").value.trim().replace(/\/$/, "");
+  store.apiBase = newBase;
+  closeSettings();
+  toast("Einstellungen gespeichert", "success");
 }
 
 // --- Auto-Fill (parse Perplexity text -> master + N agents) --------------
@@ -486,6 +547,12 @@ function wire() {
     }
   });
   $("#logout").addEventListener("click", logout);
+  // Settings
+  $("#settings-open").addEventListener("click", openSettings);
+  $("#settings-close").addEventListener("click", closeSettings);
+  $("#settings-cancel").addEventListener("click", closeSettings);
+  $("#settings-save").addEventListener("click", saveSettings);
+  $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") closeSettings(); });
   // lightbox close: button, backdrop click, Esc
   $("#lightbox-close").addEventListener("click", closeLightbox);
   $("#lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLightbox(); });

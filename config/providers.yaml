@@ -22,8 +22,10 @@ retry:
 providers:
   openai:
     enabled: true
-    max_concurrent: 2
-    rate_limit_per_minute: 5        # Tier-1 safe; raise for higher tiers
+    max_concurrent: 6               # run several agents at once (paid tiers)
+    rate_limit_per_minute: 50       # raise/lower to match your account tier
+    # Tier-1 accounts that hit 429s can dial these down without editing code by
+    # setting PIB_OPENAI_CONCURRENCY / PIB_OPENAI_RPM in the environment.
     supports_reference_images: true
     supports_masks: true
     default_model: gpt-image-2

@@ -58,6 +58,7 @@ class SchedulerCallbacks:
     """
 
     on_task_started: Callable[[GenerationTask], None] | None = None
+    on_task_running: Callable[[GenerationTask], None] | None = None
     on_task_succeeded: Callable[[GenerationTask, list[SavedImage], MetadataRecord], None] | None = None
     on_task_failed: Callable[[GenerationTask, ErrorRecord], None] | None = None
     on_task_skipped: Callable[[GenerationTask, str], None] | None = None
@@ -302,6 +303,11 @@ class GlobalScheduler:
                         limiter = self._provider_limiters.get(task.provider)
                         if limiter is not None:
                             await limiter.acquire()  # type: ignore[attr-defined]
+                        # Signal that the task has left the queue and the real
+                        # API call is starting now (distinct from being accepted
+                        # by the scheduler). Fired once, on the first attempt.
+                        if attempts == 1:
+                            self.callbacks._safe(self.callbacks.on_task_running, task)
                         prov_result = await adapter.generate(task, self.client)
                 timestamp = utc_timestamp_compact()
                 saved = await adapter.save_result(

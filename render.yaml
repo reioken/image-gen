@@ -35,6 +35,17 @@ services:
       # --- optional: overall spend cap in USD (empty = no cap) ---
       - key: WEB_BUDGET_CAP_USD
         sync: false
+      # --- optional: tune parallelism without editing code ---
+      # Raise for real (paid) accounts so agents generate at once; lower if a
+      # Tier-1 account hits 429 rate-limit errors. PIB_OPENAI_RPM=0 disables the
+      # per-minute rate limit for OpenAI. Same pattern for other providers
+      # (PIB_FAL_CONCURRENCY, PIB_REPLICATE_RPM, …).
+      - key: PIB_GLOBAL_MAX_CONCURRENT
+        sync: false
+      - key: PIB_OPENAI_CONCURRENCY
+        sync: false
+      - key: PIB_OPENAI_RPM
+        sync: false
       # --- provider keys: fill in only the ones you use; leave others blank ---
       - key: OPENAI_API_KEY
         sync: false

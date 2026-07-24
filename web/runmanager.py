@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from product_image_batch.core.budget import BudgetManager
-from product_image_batch.core.config import AppConfig, load_config, load_settings
+from product_image_batch.core.config import (
+    AppConfig,
+    apply_env_overrides,
+    load_config,
+    load_settings,
+)
 from product_image_batch.core.metadata import MetadataWriter, utc_timestamp_compact
 from product_image_batch.core.models import GenerationTask
 from product_image_batch.core.prompting import PromptRewriter, PromptVariant, load_rewrite_config
@@ -49,6 +54,7 @@ class RunManager:
     def __init__(self, output_root: Path | None = None) -> None:
         self.config: AppConfig = load_config()
         self.config.apply_settings(load_settings())
+        apply_env_overrides(self.config)
         self.rewriter = PromptRewriter(load_rewrite_config())
         self.output_root = output_root or (Path.cwd() / "outputs")
         self.output_root.mkdir(parents=True, exist_ok=True)
@@ -62,6 +68,7 @@ class RunManager:
         if self._scheduler is None:
             callbacks = SchedulerCallbacks(
                 on_task_started=self._on_started,
+                on_task_running=self._on_running,
                 on_task_succeeded=self._on_succeeded,
                 on_task_failed=self._on_failed,
                 on_task_skipped=self._on_skipped,
@@ -224,7 +231,18 @@ class RunManager:
                 pass
 
     def _on_started(self, task) -> None:
-        self._put(task.tab_id, {"type": "started", "prompt_id": task.prompt_id})
+        # The scheduler has accepted the task but it may still be waiting behind
+        # the per-provider concurrency/rate limits — surface it as "queued".
+        self._put(task.tab_id, {"type": "queued", "prompt_id": task.prompt_id})
+
+    def _on_running(self, task) -> None:
+        # The task has left the queue and the actual API call is starting now.
+        self._put(task.tab_id, {
+            "type": "running",
+            "prompt_id": task.prompt_id,
+            "provider": task.provider,
+            "model": task.model,
+        })
 
     def _on_succeeded(self, task, saved, record) -> None:
         images = [

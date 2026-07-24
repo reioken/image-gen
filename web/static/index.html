@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Product Image Batch</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=7" />
-  <link rel="apple-touch-icon" href="favicon-180.png?v=7" />
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="icon" type="image/png" href="favicon.png?v=8" />
+  <link rel="apple-touch-icon" href="favicon-180.png?v=8" />
+  <link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -200,18 +200,22 @@
       </div>
       <p class="muted small">
         Text von Perplexity einfügen — erst der <b>Master-Prompt</b>, dann die einzelnen
-        <b>Prompts</b>. Pro Prompt wird ein Agent angelegt. Format:
+        <b>Prompts</b>. Für jede Prompt-Zeile wird <b>pro ausgewähltem Provider</b> ein Agent
+        angelegt (Prompts × Provider). Format:
         <code>MASTER: …</code> dann <code>PROMPTS:</code> mit nummerierten Zeilen.
       </p>
       <div class="row auto-controls">
         <button id="auto-copy-template" class="ghost sm">📋 Perplexity-Vorlage kopieren</button>
-        <label>Provider für alle
-          <select id="auto-provider"></select>
-        </label>
-        <label>Modell
-          <input id="auto-model" list="auto-models" placeholder="modell-id" />
-          <datalist id="auto-models"></datalist>
-        </label>
+      </div>
+      <div class="provider-picks">
+        <div class="picks-head">
+          <span class="muted small">Provider (Mehrfachauswahl — je gewähltem Provider ein Agent pro Prompt):</span>
+          <span class="picks-toggle">
+            <button id="auto-all" type="button" class="ghost sm">Alle</button>
+            <button id="auto-none" type="button" class="ghost sm">Keine</button>
+          </span>
+        </div>
+        <div id="auto-providers" class="pick-list"></div>
       </div>
       <textarea id="auto-input" rows="13" spellcheck="false" placeholder="MASTER:
 Keep the exact same product in every image …
@@ -238,6 +242,6 @@ PROMPTS:
     <img id="lightbox-img" alt="" />
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>

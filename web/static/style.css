@@ -323,6 +323,26 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
 .auto-controls { align-items: end; }
 .auto-controls label { min-width: 150px; }
 #auto-input { width: 100%; margin-top: .7rem; }
+
+/* Auto-Fill provider multi-select */
+.provider-picks { margin-top: .7rem; }
+.picks-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.picks-head .picks-toggle { margin-left: auto; display: flex; gap: .35rem; }
+.pick-list { display: flex; flex-wrap: wrap; gap: .5rem; }
+.pick {
+  display: inline-flex; align-items: center; gap: .45rem; cursor: pointer;
+  font-size: .82rem; font-weight: 600; color: var(--text);
+  padding: .4rem .7rem; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  transition: border-color .16s, background .16s;
+}
+.pick:hover { border-color: var(--border-strong); }
+.pick:has(input:checked) {
+  border-color: var(--accent); background: var(--grad-soft); color: var(--text);
+}
+.pick input { width: auto; margin: 0; accent-color: var(--accent); }
+.pick.nokey { color: var(--muted); }
+.pick.nokey span { opacity: .7; }
 .modal-foot { display: flex; align-items: center; gap: .6rem; margin-top: .9rem; }
 
 /* lightbox */

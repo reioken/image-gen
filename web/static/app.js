@@ -396,20 +396,26 @@ function parseAuto(text) {
 }
 
 function fillAutoProviders() {
-  const sel = document.getElementById("auto-provider");
-  if (!sel) return;
-  sel.innerHTML = CONFIG.providers
-    .map(p => `<option value="${p.name}">${p.name}${p.has_key ? "" : " (kein Key)"}</option>`)
-    .join("");
-  const withKey = CONFIG.providers.find(p => p.has_key) || CONFIG.providers[0];
-  sel.value = withKey ? withKey.name : "openai";
-  syncAutoModels();
-  sel.onchange = syncAutoModels;
+  const host = document.getElementById("auto-providers");
+  if (!host) return;
+  // Pre-check every provider that actually has a key (so each prompt fans out
+  // across all usable providers). Fall back to mock if nothing has a key yet.
+  const anyKey = CONFIG.providers.some(p => p.has_key && p.name !== "mock");
+  host.innerHTML = CONFIG.providers.map(p => {
+    const on = anyKey ? (p.has_key && p.name !== "mock") : (p.name === "mock");
+    const dis = p.has_key ? "" : "";
+    return `<label class="pick${p.has_key ? "" : " nokey"}">
+      <input type="checkbox" value="${p.name}"${on ? " checked" : ""}${dis} />
+      <span>${p.name}${p.has_key ? "" : " · kein Key"}</span>
+    </label>`;
+  }).join("");
 }
-function syncAutoModels() {
-  const p = CONFIG.providers.find(x => x.name === document.getElementById("auto-provider").value);
-  document.getElementById("auto-models").innerHTML = (p ? p.models : []).map(m => `<option value="${m}">`).join("");
-  document.getElementById("auto-model").value = p ? p.default_model : "";
+function selectedAutoProviders() {
+  return [...document.querySelectorAll("#auto-providers input:checked")].map(c => c.value);
+}
+function setAutoProviders(on) {
+  document.querySelectorAll("#auto-providers input").forEach(c => { c.checked = on; });
+  previewAuto();
 }
 
 function openAuto() {
@@ -428,21 +434,32 @@ function closeAuto() {
 }
 function previewAuto() {
   const { master, prompts } = parseAuto($("#auto-input").value);
-  $("#auto-preview").textContent = prompts.length
-    ? `${prompts.length} Prompt(s)${master ? " + Master-Prompt" : ""} erkannt`
-    : "Noch keine Prompts erkannt";
+  const provs = selectedAutoProviders().length;
+  if (!prompts.length) { $("#auto-preview").textContent = "Noch keine Prompts erkannt"; return; }
+  const total = prompts.length * provs;
+  $("#auto-preview").textContent = provs
+    ? `${prompts.length} Prompt(s) × ${provs} Provider = ${total} Agent(en)${master ? " + Master" : ""}`
+    : `${prompts.length} Prompt(s) erkannt — bitte Provider auswählen`;
 }
 function applyAuto() {
   const { master, prompts } = parseAuto($("#auto-input").value);
   if (!prompts.length) { toast("Keine Prompts erkannt — prüfe das Format", "error"); return; }
+  const providers = selectedAutoProviders();
+  if (!providers.length) { toast("Mindestens einen Provider auswählen", "error"); return; }
   if (master) $("#master-prompt").value = master;
   document.querySelectorAll(".agent").forEach(a => a.remove());
   agentCounter = 0;
-  const provider = $("#auto-provider").value;
-  const model = $("#auto-model").value.trim();
-  prompts.forEach(p => addAgent({ provider, model, prompt: p, images: 1 }));
+  // For every prompt line, create one agent per selected provider so each
+  // prompt is generated across all of them in parallel.
+  prompts.forEach(p => {
+    providers.forEach(prov => {
+      const cfg = CONFIG.providers.find(x => x.name === prov);
+      addAgent({ provider: prov, model: cfg ? cfg.default_model : "", prompt: p, images: 1 });
+    });
+  });
   closeAuto();
-  toast(`${prompts.length} Agent(en) angelegt${master ? " + Master-Prompt" : ""}`, "success");
+  const total = prompts.length * providers.length;
+  toast(`${total} Agent(en) angelegt — ${prompts.length} Prompt(s) × ${providers.length} Provider${master ? " + Master-Prompt" : ""}`, "success");
 }
 async function copyTemplate() {
   try {
@@ -648,6 +665,9 @@ function wire() {
   $("#auto-apply").addEventListener("click", applyAuto);
   $("#auto-copy-template").addEventListener("click", copyTemplate);
   $("#auto-input").addEventListener("input", previewAuto);
+  $("#auto-providers").addEventListener("change", previewAuto);
+  $("#auto-all").addEventListener("click", () => setAutoProviders(true));
+  $("#auto-none").addEventListener("click", () => setAutoProviders(false));
   $("#auto").addEventListener("click", (e) => { if (e.target.id === "auto") closeAuto(); });
   setupDropzone();
 }

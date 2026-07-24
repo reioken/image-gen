@@ -1,0 +1,60 @@
+# Render.com Blueprint — near one-click deploy of the web backend.
+#
+# How to use:
+#   1. Push this repo to GitHub (already done).
+#   2. On Render: New +  ->  Blueprint  ->  connect this repo.
+#   3. Render reads this file and creates the service. Fill in the values it
+#      prompts for (marked sync:false below): WEB_APP_PASSWORD and the API keys
+#      of the providers you use. WEB_APP_SECRET is generated automatically.
+#   4. Deploy. You get a URL like https://product-image-batch.onrender.com
+#      -> put that URL into web/static/labor.html ("App öffnen") and, if you like,
+#      point a Cloudflare CNAME (app.dennisbf.design) at it (see docs/WEB_DEPLOY.md).
+#
+# Notes:
+#   - The server refuses to start without WEB_APP_PASSWORD (safety).
+#   - Free instances sleep when idle and lose the outputs/ folder on restart;
+#     attach a disk (below) or upgrade for persistence.
+
+services:
+  - type: web
+    name: product-image-batch
+    runtime: python
+    plan: starter            # change to "free" to try it, or a paid plan for always-on
+    region: frankfurt        # closest to Mannheim/Heidelberg
+    buildCommand: pip install -r requirements.txt -r requirements-web.txt
+    startCommand: uvicorn web.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # --- required ---
+      - key: WEB_APP_PASSWORD        # you set this (login password)
+        sync: false
+      - key: WEB_APP_SECRET          # auto-generated secure token secret
+        generateValue: true
+      # --- optional: overall spend cap in USD (empty = no cap) ---
+      - key: WEB_BUDGET_CAP_USD
+        sync: false
+      # --- provider keys: fill in only the ones you use; leave others blank ---
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: BFL_API_KEY
+        sync: false
+      - key: STABILITY_API_KEY
+        sync: false
+      - key: FAL_KEY
+        sync: false
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: IDEOGRAM_API_KEY
+        sync: false
+      - key: RECRAFT_API_TOKEN
+        sync: false
+      - key: LEONARDO_API_KEY
+        sync: false
+    # Persist generated images across restarts (optional; remove on free plan):
+    disk:
+      name: outputs
+      mountPath: /opt/render/project/src/outputs
+      sizeGB: 1

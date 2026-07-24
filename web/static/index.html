@@ -84,7 +84,10 @@
           <span class="tag">jede Zeile läuft parallel</span>
         </div>
         <div id="agents"></div>
-        <button id="add-agent" class="ghost">＋ Agent hinzufügen</button>
+        <div class="row">
+          <button id="add-agent" class="ghost">＋ Agent hinzufügen</button>
+          <button id="auto-open" class="ghost">⚡ Auto-Fill (Perplexity)</button>
+        </div>
       </section>
 
       <section class="panel glass actions reveal">
@@ -129,6 +132,45 @@
       <div class="agent-progress"><span></span></div>
     </div>
   </template>
+
+  <!-- Auto-Fill modal -->
+  <div id="auto" class="modal" hidden>
+    <div class="modal-card glass">
+      <div class="modal-head">
+        <span class="logo sm" aria-hidden="true">⚡</span>
+        <h2>Auto-Fill</h2>
+        <button id="auto-close" class="ghost icon" title="Schließen">✕</button>
+      </div>
+      <p class="muted small">
+        Text von Perplexity einfügen — erst der <b>Master-Prompt</b>, dann die einzelnen
+        <b>Prompts</b>. Pro Prompt wird ein Agent angelegt. Format:
+        <code>MASTER: …</code> dann <code>PROMPTS:</code> mit nummerierten Zeilen.
+      </p>
+      <div class="row auto-controls">
+        <button id="auto-copy-template" class="ghost sm">📋 Perplexity-Vorlage kopieren</button>
+        <label>Provider für alle
+          <select id="auto-provider"></select>
+        </label>
+        <label>Modell
+          <input id="auto-model" list="auto-models" placeholder="modell-id" />
+          <datalist id="auto-models"></datalist>
+        </label>
+      </div>
+      <textarea id="auto-input" rows="13" spellcheck="false" placeholder="MASTER:
+Keep the exact same product in every image …
+
+PROMPTS:
+1. Premium studio packshot on warm beige background, soft shadows, hero angle.
+2. Outdoor lifestyle shot on wet stone at cinematic dusk.
+3. …"></textarea>
+      <div class="modal-foot">
+        <span id="auto-preview" class="muted small"></span>
+        <span class="grow"></span>
+        <button id="auto-cancel" class="ghost">Abbrechen</button>
+        <button id="auto-apply" class="primary">Übernehmen</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast notifications -->
   <div id="toasts" class="toasts" aria-live="polite"></div>

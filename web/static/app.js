@@ -204,6 +204,141 @@ function toast(message, type = "info", ms = 4200) {
   setTimeout(kill, ms);
 }
 
+// --- Auto-Fill (parse Perplexity text -> master + N agents) --------------
+const PERPLEXITY_TEMPLATE =
+`Du bist Art Director für Produktfotografie.
+Produkt: [HIER PRODUKT KURZ BESCHREIBEN — Marke, Form, Farbe, Material, Label].
+
+Erstelle mir:
+1) einen MASTER-Prompt: globale Regeln, die das Produkt EXAKT erhalten (Form,
+   Proportionen, Logo, Label-Text, Material, Farbe) und Setting, Licht, Kamera
+   und Qualität festlegen. Auf Englisch.
+2) danach 10 einzelne Bild-Prompts: verschiedene Szenen, Hintergründe, Licht und
+   Kamerawinkel — je 1 Zeile, das Produkt bleibt identisch. Auf Englisch.
+
+Gib die Antwort GENAU in diesem Format aus, ohne weiteren Text:
+
+MASTER:
+<master prompt hier>
+
+PROMPTS:
+1. <prompt 1>
+2. <prompt 2>
+3. <prompt 3>
+...`;
+
+function extractPrompts(sectionText) {
+  const bullet = /^\s*(?:\d+[.)]|[-*•])\s+/;
+  const label = /^\s*prompt\s*\d*\s*[:\-]\s*/i;
+  const items = [];
+  let cur = null;
+  for (const line of sectionText.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    if (bullet.test(line) || label.test(t)) {
+      if (cur !== null) items.push(cur.trim());
+      cur = t.replace(bullet, "").replace(label, "");
+    } else {
+      cur = cur === null ? t : `${cur} ${t}`;
+    }
+  }
+  if (cur && cur.trim()) items.push(cur.trim());
+  // strip wrapping quotes
+  return items.map(s => s.replace(/^["'«»]+|["'«»]+$/g, "").trim()).filter(Boolean);
+}
+
+function parseAuto(text) {
+  const raw = (text || "").replace(/\r/g, "").replace(/ /g, " ").trim();
+  if (!raw) return { master: "", prompts: [] };
+  const lines = raw.split("\n");
+  const masterLabel = /^\s*master(?:\s*[- ]?\s*prompt)?\s*[:\-]?\s*/i;
+  const isMaster = (s) => /^\s*master(?:\s*[- ]?\s*prompt)?\s*[:\-]?\s*(\S.*)?$/i.test(s);
+  const isPrompts = (s) => /^\s*(?:prompts?|bilder|shots?)\s*[:\-]?\s*$/i.test(s);
+  let mi = -1, pi = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (mi < 0 && isMaster(lines[i])) mi = i;
+    else if (pi < 0 && isPrompts(lines[i])) pi = i;
+  }
+  let master = "", promptsText = "";
+  if (mi >= 0 && pi >= 0 && mi < pi) {
+    const first = lines[mi].replace(masterLabel, "");
+    master = [first, ...lines.slice(mi + 1, pi)].join("\n").trim();
+    promptsText = lines.slice(pi + 1).join("\n");
+  } else if (pi >= 0) {
+    master = lines.slice(0, pi).join("\n").replace(masterLabel, "").trim();
+    promptsText = lines.slice(pi + 1).join("\n");
+  } else {
+    const bi = lines.findIndex(l => /^\s*(?:\d+[.)]|[-*•])\s+/.test(l));
+    if (bi >= 0) {
+      master = lines.slice(0, bi).join("\n").replace(masterLabel, "").trim();
+      promptsText = lines.slice(bi).join("\n");
+    } else {
+      const blocks = raw.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+      const m = blocks.shift() || "";
+      return { master: m.replace(masterLabel, "").trim(), prompts: blocks };
+    }
+  }
+  return { master, prompts: extractPrompts(promptsText) };
+}
+
+function fillAutoProviders() {
+  const sel = document.getElementById("auto-provider");
+  if (!sel) return;
+  sel.innerHTML = CONFIG.providers
+    .map(p => `<option value="${p.name}">${p.name}${p.has_key ? "" : " (kein Key)"}</option>`)
+    .join("");
+  const withKey = CONFIG.providers.find(p => p.has_key) || CONFIG.providers[0];
+  sel.value = withKey ? withKey.name : "openai";
+  syncAutoModels();
+  sel.onchange = syncAutoModels;
+}
+function syncAutoModels() {
+  const p = CONFIG.providers.find(x => x.name === document.getElementById("auto-provider").value);
+  document.getElementById("auto-models").innerHTML = (p ? p.models : []).map(m => `<option value="${m}">`).join("");
+  document.getElementById("auto-model").value = p ? p.default_model : "";
+}
+
+function openAuto() {
+  fillAutoProviders();
+  $("#auto-input").value = "";
+  $("#auto-preview").textContent = "";
+  const m = $("#auto");
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add("show"));
+  $("#auto-input").focus();
+}
+function closeAuto() {
+  const m = $("#auto");
+  m.classList.remove("show");
+  setTimeout(() => { m.hidden = true; }, 200);
+}
+function previewAuto() {
+  const { master, prompts } = parseAuto($("#auto-input").value);
+  $("#auto-preview").textContent = prompts.length
+    ? `${prompts.length} Prompt(s)${master ? " + Master-Prompt" : ""} erkannt`
+    : "Noch keine Prompts erkannt";
+}
+function applyAuto() {
+  const { master, prompts } = parseAuto($("#auto-input").value);
+  if (!prompts.length) { toast("Keine Prompts erkannt — prüfe das Format", "error"); return; }
+  if (master) $("#master-prompt").value = master;
+  document.querySelectorAll(".agent").forEach(a => a.remove());
+  agentCounter = 0;
+  const provider = $("#auto-provider").value;
+  const model = $("#auto-model").value.trim();
+  prompts.forEach(p => addAgent({ provider, model, prompt: p, images: 1 }));
+  closeAuto();
+  toast(`${prompts.length} Agent(en) angelegt${master ? " + Master-Prompt" : ""}`, "success");
+}
+async function copyTemplate() {
+  try {
+    await navigator.clipboard.writeText(PERPLEXITY_TEMPLATE);
+    toast("Perplexity-Vorlage kopiert", "success");
+  } catch {
+    toast("Kopieren nicht möglich — Vorlage manuell markieren", "warn");
+  }
+}
+
 // --- lightbox ------------------------------------------------------------
 function openLightbox(url) {
   const lb = $("#lightbox");
@@ -343,6 +478,14 @@ function wire() {
   $("#add-agent").addEventListener("click", () => addAgent());
   $("#start").addEventListener("click", startRun);
   $("#stop").addEventListener("click", stopRun);
+  // Auto-Fill
+  $("#auto-open").addEventListener("click", openAuto);
+  $("#auto-close").addEventListener("click", closeAuto);
+  $("#auto-cancel").addEventListener("click", closeAuto);
+  $("#auto-apply").addEventListener("click", applyAuto);
+  $("#auto-copy-template").addEventListener("click", copyTemplate);
+  $("#auto-input").addEventListener("input", previewAuto);
+  $("#auto").addEventListener("click", (e) => { if (e.target.id === "auto") closeAuto(); });
   setupDropzone();
 }
 

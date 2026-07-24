@@ -244,6 +244,23 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
 .toast.error   { border-left-color: var(--error); }
 .toast.warn    { border-left-color: var(--warn); }
 
+/* modal (Auto-Fill) */
+.modal {
+  position: fixed; inset: 0; z-index: 75; display: grid; place-items: center; padding: 4vmin;
+  background: rgba(4,5,8,.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  opacity: 0; transition: opacity .2s ease;
+}
+.modal.show { opacity: 1; }
+.modal-card { width: min(720px, 94vw); max-height: 90vh; overflow: auto; padding: 1.3rem 1.4rem; animation: pop .28s cubic-bezier(.2,.8,.2,1); }
+.modal-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.modal-head h2 { margin: 0; }
+.modal-head .icon { margin-left: auto; }
+.modal code { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: .05rem .35rem; font-size: .82em; }
+.auto-controls { align-items: end; }
+.auto-controls label { min-width: 150px; }
+#auto-input { width: 100%; margin-top: .7rem; }
+.modal-foot { display: flex; align-items: center; gap: .6rem; margin-top: .9rem; }
+
 /* lightbox */
 .lightbox {
   position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 3vmin;

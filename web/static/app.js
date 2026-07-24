@@ -331,9 +331,22 @@ function openSettings() {
   $("#set-size").value = d.size || "1024x1024";
   $("#set-apibase").value = store.apiBase;
 
+  settingsTab("budget");   // always open on the first tab
   const m = $("#settings");
   m.hidden = false;
   requestAnimationFrame(() => m.classList.add("show"));
+}
+function settingsTab(name) {
+  document.querySelectorAll("#settings .tab").forEach(t => {
+    const on = t.dataset.tab === name;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll("#settings .tab-panel").forEach(p => {
+    const on = p.dataset.panel === name;
+    p.classList.toggle("active", on);
+    p.hidden = !on;
+  });
 }
 function closeSettings() {
   const m = $("#settings");
@@ -941,6 +954,8 @@ function wire() {
   $("#settings-cancel").addEventListener("click", closeSettings);
   $("#settings-save").addEventListener("click", saveSettings);
   $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") closeSettings(); });
+  document.querySelectorAll("#settings .tab").forEach(t =>
+    t.addEventListener("click", () => settingsTab(t.dataset.tab)));
   // lightbox close: button, backdrop click, Esc; navigation + actions
   $("#lightbox-close").addEventListener("click", closeLightbox);
   $("#lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox" || e.target.classList.contains("lb-figure")) closeLightbox(); });

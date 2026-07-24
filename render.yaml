@@ -19,7 +19,8 @@ services:
   - type: web
     name: product-image-batch
     runtime: python
-    plan: starter            # change to "free" to try it, or a paid plan for always-on
+    plan: free               # kostenlos (schläft nach ~15 min Inaktivität, Kaltstart ~30–60s)
+                             # -> für "immer an" auf "starter" (kostenpflichtig) ändern
     region: frankfurt        # closest to Mannheim/Heidelberg
     buildCommand: pip install -r requirements.txt -r requirements-web.txt
     startCommand: uvicorn web.server:app --host 0.0.0.0 --port $PORT
@@ -53,8 +54,10 @@ services:
         sync: false
       - key: LEONARDO_API_KEY
         sync: false
-    # Persist generated images across restarts (optional; remove on free plan):
-    disk:
-      name: outputs
-      mountPath: /opt/render/project/src/outputs
-      sizeGB: 1
+    # Auf dem Free-Plan gibt es keinen persistenten Datenträger — generierte Bilder
+    # liegen nur temporär im Container. Für dauerhafte Ablage auf "starter" upgraden
+    # und diesen Block einkommentieren:
+    # disk:
+    #   name: outputs
+    #   mountPath: /opt/render/project/src/outputs
+    #   sizeGB: 1

@@ -19,6 +19,7 @@ import httpx
 from ..errors import ProviderError, ProviderTimeoutError
 from ..models import GenerationTask, ProviderJob, ProviderResult, RemoteImage
 from .base import BaseProvider
+from ..utils import images as imgutil
 
 API_BASE = "https://cloud.leonardo.ai/api/rest/v1"
 
@@ -59,7 +60,7 @@ class LeonardoProvider(BaseProvider):
                 model=self.model_name,
             )
         # POST the file to the presigned S3 URL (no auth header).
-        files = {"file": (ref.name, ref.read_bytes())}
+        files = {"file": (ref.name, imgutil.read_bytes_cached(ref))}
         up = await client.post(url, data=fields, files=files, timeout=300.0)
         if up.status_code >= 400:
             self.raise_for_status(up, body="init-image upload failed")

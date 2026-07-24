@@ -14,6 +14,7 @@ from pathlib import Path
 import httpx
 
 from ..models import CostEstimate, GenerationTask, ProviderJob, ProviderResult, RemoteImage
+from ..utils import images as imgutil
 from .base import BaseProvider
 
 API_URL = "https://api.openai.com/v1/images/edits"
@@ -59,11 +60,11 @@ class OpenAIProvider(BaseProvider):
             for ref in task.reference_images[:16]:
                 p = Path(ref)
                 files.append(
-                    ("image[]", (p.name, p.read_bytes(), _mime_for(p)))
+                    ("image[]", (p.name, imgutil.read_bytes_cached(p), _mime_for(p)))
                 )
             if task.mask_path is not None:
                 mp = Path(task.mask_path)
-                files.append(("mask", (mp.name, mp.read_bytes(), "image/png")))
+                files.append(("mask", (mp.name, imgutil.read_bytes_cached(mp), "image/png")))
 
             data = {
                 "model": self.model_name,

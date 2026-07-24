@@ -596,12 +596,15 @@ function addResult(runId, filename) {
   const gallery = $("#gallery");
   const empty = gallery.querySelector(".empty");
   if (empty) empty.remove();
-  const url = api(`/api/run/${runId}/image/${encodeURIComponent(filename)}?token=${encodeURIComponent(store.token)}`);
+  const base = api(`/api/run/${runId}/image/${encodeURIComponent(filename)}?token=${encodeURIComponent(store.token)}`);
+  const full = base;
+  const thumb = base + "&thumb=1";
   const a = document.createElement("a");
-  a.href = url;
-  a.addEventListener("click", (e) => { e.preventDefault(); openLightbox(url); });
+  a.href = full;
+  // Grid shows a lightweight thumbnail; the lightbox opens the full image.
+  a.addEventListener("click", (e) => { e.preventDefault(); openLightbox(full); });
   const img = document.createElement("img");
-  img.src = url; img.loading = "lazy";
+  img.src = thumb; img.loading = "lazy"; img.decoding = "async";
   a.appendChild(img);
   gallery.appendChild(a);
 }

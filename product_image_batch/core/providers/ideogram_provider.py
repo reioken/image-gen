@@ -13,6 +13,7 @@ import httpx
 
 from ..models import GenerationTask, ProviderJob, ProviderResult, RemoteImage
 from .base import BaseProvider
+from ..utils import images as imgutil
 
 REMIX_URL = "https://api.ideogram.ai/remix"
 
@@ -44,7 +45,7 @@ class IdeogramProvider(BaseProvider):
         files = {}
         if task.reference_images:
             ref = Path(task.reference_images[0])
-            files["image_file"] = (ref.name, ref.read_bytes(), _mime(ref))
+            files["image_file"] = (ref.name, imgutil.read_bytes_cached(ref), _mime(ref))
         import json as _json
 
         data = {"image_request": _json.dumps(image_request)}

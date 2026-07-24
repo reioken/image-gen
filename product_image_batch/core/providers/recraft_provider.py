@@ -13,6 +13,7 @@ import httpx
 
 from ..models import GenerationTask, ProviderJob, ProviderResult, RemoteImage
 from .base import BaseProvider
+from ..utils import images as imgutil
 
 API_URL = "https://external.api.recraft.ai/v1/images/imageToImage"
 
@@ -46,10 +47,10 @@ class RecraftProvider(BaseProvider):
         files = {}
         if task.reference_images:
             ref = Path(task.reference_images[0])
-            files["image"] = (ref.name, ref.read_bytes(), _mime(ref))
+            files["image"] = (ref.name, imgutil.read_bytes_cached(ref), _mime(ref))
         if task.mask_path is not None:
             mp = Path(task.mask_path)
-            files["mask"] = (mp.name, mp.read_bytes(), "image/png")
+            files["mask"] = (mp.name, imgutil.read_bytes_cached(mp), "image/png")
 
         resp = await client.post(
             API_URL, headers=headers, data=data, files=files or None, timeout=300.0

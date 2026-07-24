@@ -213,9 +213,9 @@ def create_app() -> FastAPI:
     async def cancel(run_id: str, _: None = Depends(require_auth)) -> dict:
         return {"cancelled": manager.cancel_run(run_id)}
 
-    # --- serve a generated image ---
+    # --- serve a generated image (full, or a lightweight thumbnail) ---
     @app.get("/api/run/{run_id}/image/{name}")
-    async def image(run_id: str, name: str, request: Request) -> FileResponse:
+    async def image(run_id: str, name: str, request: Request, thumb: int = 0) -> FileResponse:
         if not verify_token(_token_from_request(request)):
             raise HTTPException(status_code=401, detail="unauthorized")
         state = manager.get_run(run_id)
@@ -226,7 +226,20 @@ def create_app() -> FastAPI:
         path = state.out_dir / "images" / safe
         if not path.exists():
             raise HTTPException(status_code=404, detail="image not found")
-        return FileResponse(path)
+        headers = {"Cache-Control": "private, max-age=86400"}
+        if thumb:
+            # The results grid only needs small previews; serving full multi-MB
+            # images there is slow on mobile. Generate a cached JPEG thumbnail
+            # once (off the event loop) and reuse it. The lightbox still loads
+            # the full-resolution original.
+            tpath = state.out_dir / "thumbs" / (safe + ".jpg")
+            if not tpath.exists():
+                try:
+                    await asyncio.to_thread(imgutil.make_thumbnail, path, tpath, 384)
+                except Exception:  # noqa: BLE001 — fall back to the full image
+                    return FileResponse(path, headers=headers)
+            return FileResponse(tpath, headers=headers)
+        return FileResponse(path, headers=headers)
 
     @app.get("/api/health")
     async def health() -> dict:

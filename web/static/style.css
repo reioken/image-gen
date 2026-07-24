@@ -71,9 +71,11 @@
 
 html { scroll-behavior: smooth; }
 body {
-  margin: 0; min-height: 100vh; color: var(--text); background: var(--bg);
+  margin: 0; min-height: 100vh; min-height: 100dvh; color: var(--text); background: var(--bg);
   font-family: var(--font-body); font-size: 15px; line-height: 1.55;
   -webkit-font-smoothing: antialiased; letter-spacing: -0.003em;
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+  overflow-x: hidden;  /* never scroll sideways on small screens */
 }
 
 /* ambient background glow */
@@ -174,7 +176,7 @@ label { display: grid; gap: .3rem; font-size: .82rem; color: var(--muted); font-
 .link:hover { border-bottom-color: var(--accent); }
 
 /* login */
-.login { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 1.2rem; }
+.login { min-height: 100vh; min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 1.2rem; }
 .card { padding: 2rem; width: min(400px, 92vw); display: grid; gap: 1.05rem; animation: pop .5s cubic-bezier(.2,.8,.2,1); }
 .login-foot { font-size: .82rem; }
 @keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
@@ -361,12 +363,32 @@ details > summary { cursor: pointer; padding: .2rem 0; font-size: .85rem; }
 details[open] > summary { margin-bottom: .4rem; }
 
 @media (max-width: 680px) {
-  .agent-head { grid-template-columns: 1fr 1fr; }
+  main { padding: .4rem .7rem 3rem; }
+  .panel { padding: 1rem .9rem; }
+  /* Agent 1 (label) | provider ; then model full row ; images | remove */
+  .agent-head { grid-template-columns: 1fr auto; }
+  .agent-head > .agent-label { grid-column: 1 / -1; }
+  .agent-head > label:nth-of-type(2) { grid-column: 1 / -1; }  /* model input */
   .agent-params { grid-template-columns: 1fr 1fr; }
-  .topbar { top: 0; margin: 0; border-radius: 0; }
+  .agent-params .agent-status { grid-column: 1 / -1; justify-self: start; white-space: normal; }
+  .topbar { top: 0; margin: 0; border-radius: 0; padding-top: max(.6rem, env(safe-area-inset-top)); }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  /* the overall progress bar drops onto its own full-width line under the buttons */
+  .actions .overall { flex-basis: 100%; }
 }
 @media (max-width: 480px) {
   .topbar strong { display: none; }        /* keep just the logo + actions */
   .badge { font-size: .72rem; padding: .3rem .55rem; }
   .topbar { gap: .5rem; }
+  .agent-params { grid-template-columns: 1fr; }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(46vw, 1fr)); }
+}
+
+/* Touch devices: bigger tap targets and 16px form text so iOS Safari does not
+   auto-zoom the page when a field gains focus. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px; }  /* >=16px: no iOS focus zoom */
+  button { min-height: 44px; }
+  button.sm, button.icon { min-height: 40px; }
+  .thumb button { min-height: 0; }  /* the tiny ✕ remove overlay stays compact */
 }

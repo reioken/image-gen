@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Product Image Batch</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=10" />
-  <link rel="apple-touch-icon" href="favicon-180.png?v=10" />
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="icon" type="image/png" href="favicon.png?v=11" />
+  <link rel="apple-touch-icon" href="favicon-180.png?v=11" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -106,9 +106,11 @@
       <section class="panel glass reveal">
         <div class="panel-head">
           <h2>Ergebnisse</h2>
-          <span class="tag">live · Klick öffnet groß</span>
+          <span id="results-count" class="tag" hidden>0 Bilder</span>
+          <span class="grow"></span>
+          <button id="download-zip" class="ghost sm" hidden>⬇ Alle als ZIP</button>
         </div>
-        <div id="gallery" class="gallery"><p class="empty muted">Noch keine Bilder — starte einen Lauf.</p></div>
+        <div id="gallery" class="gallery-stack"><p class="empty muted">Noch keine Bilder — starte einen Lauf.</p></div>
       </section>
     </main>
   </div>
@@ -233,6 +235,23 @@ PROMPTS:
     </div>
   </div>
 
+  <!-- Confirm-before-start modal -->
+  <div id="confirm" class="modal" hidden>
+    <div class="modal-card glass sm">
+      <div class="modal-head">
+        <span class="logo sm" aria-hidden="true">▶</span>
+        <h2>Lauf starten?</h2>
+        <button id="confirm-close" class="ghost icon" title="Schließen">✕</button>
+      </div>
+      <p id="confirm-text" class="confirm-text"></p>
+      <div class="modal-foot">
+        <span class="grow"></span>
+        <button id="confirm-cancel" class="ghost">Abbrechen</button>
+        <button id="confirm-ok" class="primary">▶ Jetzt starten</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications -->
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
@@ -242,6 +261,6 @@ PROMPTS:
     <img id="lightbox-img" alt="" />
   </div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

@@ -22,6 +22,8 @@ let EVT = null;
 // override per agent or via Settings; this is the "always N versions" default.
 const DEFAULT_IMAGES = 20;
 
+let RESULT_COUNT = 0;   // images shown in the current run's gallery
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const api = (path) => `${store.apiBase}${path}`;
 
@@ -493,6 +495,26 @@ async function startRun() {
   if (REFERENCES.length === 0) { setStatus("Mindestens ein Referenzbild nötig."); return; }
   if (agents.length === 0) { setStatus("Mindestens ein Agent mit Prompt nötig."); return; }
 
+  // Cost/quantity preview — a run can be hundreds of images, so confirm first.
+  const totalImages = agents.reduce((s, a) => s + (parseInt(a.images, 10) || 1), 0);
+  const est = agents.reduce((s, a) => {
+    const p = CONFIG.providers.find(x => x.name === a.provider);
+    const price = (p && p.price_per_image != null) ? p.price_per_image : 0.05;
+    return s + (parseInt(a.images, 10) || 1) * price;
+  }, 0);
+  const b = CONFIG.budget || {};
+  let budgetLine = "";
+  if (b.max_total_cost_usd) {
+    const rem = Math.max(0, b.max_total_cost_usd - (b.estimated_spend_usd || 0));
+    const warn = est > rem ? ' <span class="danger">— könnte den Deckel sprengen</span>' : "";
+    budgetLine = `<br>Budget übrig: ~$${rem.toFixed(2)} von $${b.max_total_cost_usd.toFixed(2)}${warn}`;
+  }
+  const ok = await confirmRun(
+    `<b>${totalImages} Bild${totalImages === 1 ? "" : "er"}</b> über ${agents.length} Agent${agents.length === 1 ? "" : "en"}.` +
+    `<br>Geschätzte Kosten: <b>~$${est.toFixed(2)}</b> <span class="muted">(grobe Schätzung, je nach Modell/Größe)</span>${budgetLine}`
+  );
+  if (!ok) { setStatus("abgebrochen."); return; }
+
   const fd = new FormData();
   fd.append("config", JSON.stringify({
     name: "web-run",
@@ -504,6 +526,7 @@ async function startRun() {
 
   setStatus("Starte…");
   $("#gallery").innerHTML = "";
+  RESULT_COUNT = 0; updateResultsToolbar();
   initAgentProgress();
   setOverallProgress(0, 0);
   document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet", s.dataset.state = ""; });
@@ -551,7 +574,7 @@ function streamEvents(runId, total) {
     }
     else if (ev.type === "image") {
       const n = ev.images.length;
-      for (const img of ev.images) addResult(runId, img.file);
+      for (const img of ev.images) addResult(runId, img.file, ev.prompt_id, ev.provider);
       const prog = bumpAgentProgress(ev.prompt_id, n);
       const row = rowForPrompt(ev.prompt_id);
       if (prog && prog.done >= prog.expected) {
@@ -582,7 +605,7 @@ function streamEvents(runId, total) {
       finishRun();
       const kind = ev.failed ? "warn" : "success";
       toast(`Fertig — ${ev.succeeded} ok${ev.failed ? `, ${ev.failed} Fehler` : ""}${ev.skipped ? `, ${ev.skipped} übersprungen` : ""}`, kind, 6000);
-      if (!document.querySelector(".gallery img")) {
+      if (!document.querySelector("#gallery img")) {
         $("#gallery").innerHTML = '<p class="empty muted">Keine Bilder erzeugt — prüfe Provider-Key & Prompt.</p>';
       }
     }
@@ -596,10 +619,49 @@ function streamEvents(runId, total) {
   };
 }
 
-function addResult(runId, filename) {
+// Find (or create) the per-agent result group so hundreds of images stay
+// grouped by their prompt instead of one endless flat grid.
+function resultGroup(promptId, provider) {
   const gallery = $("#gallery");
   const empty = gallery.querySelector(".empty");
   if (empty) empty.remove();
+  const key = promptId || "a00";
+  let g = gallery.querySelector(`.result-group[data-group="${key}"]`);
+  if (!g) {
+    g = document.createElement("div");
+    g.className = "result-group";
+    g.dataset.group = key;
+    g.dataset.n = "0";
+    const num = parseInt(key.replace(/\D/g, ""), 10) || "";
+    const row = rowForPrompt(key);
+    const promptTxt = row ? (row.querySelector(".prompt").value || "").trim() : "";
+    const head = document.createElement("div");
+    head.className = "result-group-head";
+    const meta = document.createElement("div");
+    meta.className = "rg-meta";
+    const title = document.createElement("span");
+    title.className = "rg-title";
+    title.textContent = `Agent ${num}${provider ? " · " + provider : ""}`;
+    const sub = document.createElement("span");
+    sub.className = "rg-sub muted";
+    sub.textContent = promptTxt;
+    sub.title = promptTxt;
+    meta.append(title, sub);
+    const count = document.createElement("span");
+    count.className = "rg-count";
+    count.textContent = "0";
+    head.append(meta, count);
+    const grid = document.createElement("div");
+    grid.className = "result-grid";
+    g.append(head, grid);
+    gallery.appendChild(g);
+  }
+  return g;
+}
+
+function addResult(runId, filename, promptId, provider) {
+  const g = resultGroup(promptId, provider);
+  const grid = g.querySelector(".result-grid");
   const base = api(`/api/run/${runId}/image/${encodeURIComponent(filename)}?token=${encodeURIComponent(store.token)}`);
   const full = base;
   const thumb = base + "&thumb=1";
@@ -610,7 +672,11 @@ function addResult(runId, filename) {
   const img = document.createElement("img");
   img.src = thumb; img.loading = "lazy"; img.decoding = "async";
   a.appendChild(img);
-  gallery.appendChild(a);
+  grid.appendChild(a);
+  g.dataset.n = String((parseInt(g.dataset.n, 10) || 0) + 1);
+  g.querySelector(".rg-count").textContent = g.dataset.n;
+  RESULT_COUNT++;
+  updateResultsToolbar();
 }
 
 async function stopRun() {
@@ -621,7 +687,48 @@ async function stopRun() {
 }
 
 function setStatus(t) { $("#status").textContent = t; }
-function updateBudget(b) { $("#budget").textContent = `Budget: $${(b.estimated_spend_usd || 0).toFixed(2)}`; }
+function updateBudget(b) {
+  if (b) CONFIG.budget = b;   // keep the cached budget fresh for the cost preview
+  const s = (b || CONFIG.budget || {});
+  $("#budget").textContent = `Budget: $${(s.estimated_spend_usd || 0).toFixed(2)}`;
+}
+
+// --- results toolbar (count + ZIP download) ------------------------------
+function updateResultsToolbar() {
+  const c = $("#results-count");
+  const z = $("#download-zip");
+  if (RESULT_COUNT > 0) {
+    c.hidden = false; c.textContent = `${RESULT_COUNT} Bild${RESULT_COUNT === 1 ? "" : "er"}`;
+    z.hidden = false;
+  } else {
+    c.hidden = true; z.hidden = true;
+  }
+}
+function downloadAllZip() {
+  if (!CURRENT_RUN || RESULT_COUNT === 0) return;
+  const url = api(`/api/run/${CURRENT_RUN}/download?token=${encodeURIComponent(store.token)}`);
+  const a = document.createElement("a");
+  a.href = url; a.download = ""; document.body.appendChild(a); a.click(); a.remove();
+  toast("ZIP wird erstellt & geladen…", "info");
+}
+
+// --- confirm-before-start modal ------------------------------------------
+let _confirmResolve = null;
+function confirmRun(html) {
+  return new Promise((resolve) => {
+    _confirmResolve = resolve;
+    $("#confirm-text").innerHTML = html;
+    const m = $("#confirm");
+    m.hidden = false;
+    requestAnimationFrame(() => m.classList.add("show"));
+  });
+}
+function closeConfirm(val) {
+  const m = $("#confirm");
+  m.classList.remove("show");
+  setTimeout(() => { m.hidden = true; }, 180);
+  if (_confirmResolve) { const r = _confirmResolve; _confirmResolve = null; r(val); }
+}
 
 // --- boot ----------------------------------------------------------------
 async function enterApp() {
@@ -663,6 +770,12 @@ function wire() {
   $("#add-agent").addEventListener("click", () => addAgent());
   $("#start").addEventListener("click", startRun);
   $("#stop").addEventListener("click", stopRun);
+  $("#download-zip").addEventListener("click", downloadAllZip);
+  // Confirm-before-start modal
+  $("#confirm-ok").addEventListener("click", () => closeConfirm(true));
+  $("#confirm-cancel").addEventListener("click", () => closeConfirm(false));
+  $("#confirm-close").addEventListener("click", () => closeConfirm(false));
+  $("#confirm").addEventListener("click", (e) => { if (e.target.id === "confirm") closeConfirm(false); });
   // Perplexity prompt copy (with animation)
   $("#get-prompt").addEventListener("click", (e) => copyPromptWithAnim(e.currentTarget));
   // Auto-Fill

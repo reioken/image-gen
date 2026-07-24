@@ -33,7 +33,10 @@ const MASTER_CORE = `PRODUCT CONSISTENCY (applies to every image):
 - Only the scene may change: background, surface, lighting, camera angle, styling and props.
 
 NO ADDED TEXT:
-- Do not add any text, captions, headlines, words, letters, watermarks, signatures, stickers or extra logos anywhere in the image; keep the background and scene free of writing. Only text physically printed on the product stays — never add, translate or invent text.`;
+- Do not add any text, captions, headlines, words, letters, watermarks, signatures, stickers or extra logos anywhere in the image; keep the background and scene free of writing. Only text physically printed on the product stays — never add, translate or invent text.
+
+SINGLE IMAGE ONLY:
+- Output exactly one photorealistic product photograph that fills the whole frame as one continuous scene. Never make a collage, photo grid, contact sheet, montage, mosaic, storyboard, split-screen, multiple panels, insets or thumbnails — just one clean single image.`;
 
 const MASTER_TEMPLATES = {
   studio: `${MASTER_CORE}

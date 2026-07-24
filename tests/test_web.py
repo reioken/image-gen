@@ -143,3 +143,41 @@ def test_workspaces_save_list_get_delete(client):
 
     assert client.delete(f"/api/workspaces/{wid}", headers=h).json()["deleted"] is True
     assert client.get(f"/api/workspaces/{wid}", headers=h).status_code == 404
+
+
+def test_translate_requires_key(client, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    h = _login(client)
+    r = client.post("/api/translate", headers=h, json={"texts": ["Hallo"]})
+    assert r.status_code == 503
+
+
+def test_translate_endpoint_uses_translator(client, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    async def fake_batch(texts, *, source="de", targets=None, api_key):
+        assert api_key == "sk-test"
+        out = {source: list(texts)}
+        for t in (targets or ["en", "fr"]):
+            out[t] = [f"{t}:{x}" for x in texts]
+        return out
+
+    import web.translate as tr
+    monkeypatch.setattr(tr, "translate_batch", fake_batch)
+
+    h = _login(client)
+    r = client.post(
+        "/api/translate", headers=h,
+        json={"texts": ["Frisch", "Neu"], "source": "de", "targets": ["en", "pl"]},
+    )
+    assert r.status_code == 200
+    tl = r.json()["translations"]
+    assert tl["de"] == ["Frisch", "Neu"]
+    assert tl["en"] == ["en:Frisch", "en:Neu"]
+    assert tl["pl"] == ["pl:Frisch", "pl:Neu"]
+
+
+def test_config_reports_can_translate(client, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-x")
+    h = _login(client)
+    assert client.get("/api/config", headers=h).json()["can_translate"] is True

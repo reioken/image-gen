@@ -367,8 +367,33 @@ PROMPTS:
     </div>
   </div>
 
+  <!-- Sprachen & Pack-Export modal -->
+  <div id="ed-tr" class="modal" hidden>
+    <div class="modal-card glass ed-tr-card">
+      <div class="modal-head">
+        <span class="logo sm" aria-hidden="true">🌍</span>
+        <h2>Sprachen &amp; Pack-Export</h2>
+        <button id="ed-tr-close" class="ghost icon" title="Schließen">✕</button>
+      </div>
+      <p class="muted small">
+        Deutsch ist die Quelle. Die Übersetzungen (EN · FR · IT · ES · PL) sind
+        editierbar. Der Pack wird pro Bild <b>mit</b> und <b>ohne Logo</b> in allen
+        6 Sprachen erzeugt: <code>Produktart / Name / Farbe / mit-logo|ohne-logo / sprache</code>.
+      </p>
+      <div id="ed-tr-body" class="ed-tr-body"></div>
+      <div class="modal-foot">
+        <span id="ed-tr-status" class="muted small"></span>
+        <span class="grow"></span>
+        <button id="ed-tr-retranslate" class="ghost sm">↻ Neu übersetzen</button>
+        <button id="ed-tr-cancel" class="ghost">Abbrechen</button>
+        <button id="ed-tr-export" class="primary">📦 Pack erstellen</button>
+      </div>
+    </div>
+  </div>
+
   <script src="vendor/fabric.min.js?v=1"></script>
+  <script src="vendor/jszip.min.js?v=1"></script>
   <script src="app.js?v=19"></script>
-  <script src="editor.js?v=1"></script>
+  <script src="editor.js?v=2"></script>
 </body>
 </html>

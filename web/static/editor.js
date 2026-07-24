@@ -18,8 +18,16 @@
   let template = { layers: [] };   // shared layer specs
   let imageText = {};       // file -> { layerId: text }
   let imageMeta = {};       // file -> { art, name, color }
+  let translations = {};    // file -> { layerId: { de, en, fr, it, es, pl } }
   let lastLogo = null;      // last uploaded logo data-URL
+  let curNat = { w: 0, h: 0 };  // native size of the current image
   let uid = 1;
+
+  const LANGS = [
+    ["de", "Deutsch", "deutsch"], ["en", "English", "englisch"],
+    ["fr", "Français", "franzoesisch"], ["it", "Italiano", "italienisch"],
+    ["es", "Español", "spanisch"], ["pl", "Polski", "polnisch"],
+  ];
   const nid = () => "L" + (uid++);
 
   const FONTS = ["Outfit Variable", "Arial", "Georgia", "Times New Roman", "Courier New", "Impact"];
@@ -28,14 +36,14 @@
   const KEY = () => "pib_editor_" + (CURRENT_RUN || "run");
   function saveState() {
     try {
-      localStorage.setItem(KEY(), JSON.stringify({ template, imageText, imageMeta, lastLogo }));
+      localStorage.setItem(KEY(), JSON.stringify({ template, imageText, imageMeta, translations, lastLogo }));
     } catch { /* quota */ }
   }
   function loadState() {
-    template = { layers: [] }; imageText = {}; imageMeta = {}; lastLogo = null;
+    template = { layers: [] }; imageText = {}; imageMeta = {}; translations = {}; lastLogo = null;
     try {
       const s = JSON.parse(localStorage.getItem(KEY()) || "null");
-      if (s) { template = s.template || { layers: [] }; imageText = s.imageText || {}; imageMeta = s.imageMeta || {}; lastLogo = s.lastLogo || null; }
+      if (s) { template = s.template || { layers: [] }; imageText = s.imageText || {}; imageMeta = s.imageMeta || {}; translations = s.translations || {}; lastLogo = s.lastLogo || null; }
     } catch { /* ignore */ }
     let mx = 0; (template.layers || []).forEach(l => { const n = parseInt(String(l.id).slice(1), 10); if (n > mx) mx = n; });
     uid = mx + 1;
@@ -88,7 +96,12 @@
     loadMeta();
     F.Image.fromURL(fullUrl(curFile), (img) => {
       const natW = img.width, natH = img.height;
-      const { w, h } = fitSize(natW, natH);
+      curNat = { w: natW, h: natH };
+      // Pin the editing canvas size for the whole series so the shared layout
+      // coordinates stay consistent across images. Native export scales up by
+      // natW / baseW later.
+      if (!template.baseW) { const f = fitSize(natW, natH); template.baseW = f.w; template.baseH = f.h; }
+      const w = template.baseW, h = template.baseH;
       canvas.setDimensions({ width: w, height: h });
       img.set({ selectable: false, evented: false, left: 0, top: 0,
                 scaleX: w / natW, scaleY: h / natH, originX: "left", originY: "top" });
@@ -276,6 +289,184 @@
     saveState();
   }
 
+  // --- translation + pack export (Phase 2/3) ------------------------------
+  function textLayers() { return template.layers.filter(l => l.type === "text"); }
+  function gatherItems() {
+    const out = [];
+    for (const im of imgs) for (const t of textLayers()) {
+      const src = (imageText[im.file] && imageText[im.file][t.id] != null) ? imageText[im.file][t.id] : (t.text || "");
+      out.push({ file: im.file, layerId: t.id, source: src });
+    }
+    return out;
+  }
+
+  function startExport() {
+    saveMeta();
+    const hasContainer = template.layers.some(l => l.type === "container");
+    const hasText = textLayers().length > 0;
+    if (!hasContainer || !hasText) { toast("Erst einen Container UND einen Text hinzufügen", "warn"); return; }
+    // Warn (non-blocking) about images that still miss text or metadata.
+    const miss = [];
+    for (const im of imgs) {
+      const m = imageMeta[im.file] || {};
+      if (!m.art || !m.name || !m.color) { miss.push(im.file); continue; }
+      for (const t of textLayers()) { const v = imageText[im.file] && imageText[im.file][t.id]; if (!v || !v.trim()) { miss.push(im.file); break; } }
+    }
+    if (miss.length) toast(`${miss.length} Bild(er) ohne Text/Metadaten — fehlende Felder ausfüllen für saubere Ordner`, "warn", 6000);
+    openTrModal();
+  }
+
+  function openTrModal() {
+    el("ed-tr").hidden = false;
+    requestAnimationFrame(() => el("ed-tr").classList.add("show"));
+    renderTrTable();
+    const need = gatherItems().some(it => !(translations[it.file] && translations[it.file][it.layerId] && translations[it.file][it.layerId].en));
+    if (need && (typeof CONFIG === "undefined" || CONFIG.can_translate !== false)) autoTranslate();
+  }
+  function closeTrModal() {
+    readTrInputs();
+    el("ed-tr").classList.remove("show");
+    setTimeout(() => { el("ed-tr").hidden = true; }, 200);
+  }
+
+  function labelForLayer(id) { const n = textLayers().findIndex(t => t.id === id); return "Text " + (n + 1); }
+  function renderTrTable() {
+    const body = el("ed-tr-body"); body.innerHTML = "";
+    imgs.forEach((im, i) => {
+      const m = imageMeta[im.file] || {};
+      const card = document.createElement("div"); card.className = "ed-tr-img";
+      const pathBits = [m.art, m.name, m.color].filter(Boolean).map(escapeHtml).join(" / ") || "<em>Metadaten fehlen</em>";
+      card.innerHTML = `<div class="ed-tr-h"><span class="ed-tr-n">#${i + 1}</span> <span class="muted small">${pathBits}</span></div>`;
+      for (const t of textLayers()) {
+        const tr = (translations[im.file] && translations[im.file][t.id]) || {};
+        const de = (imageText[im.file] && imageText[im.file][t.id] != null) ? imageText[im.file][t.id] : (t.text || "");
+        const block = document.createElement("div"); block.className = "ed-tr-block";
+        block.innerHTML = `<div class="ed-tr-lname small muted">${labelForLayer(t.id)}</div>` +
+          LANGS.map(([code, label]) => {
+            const val = code === "de" ? de : (tr[code] || "");
+            return `<label class="ed-tr-row small"><span class="ed-tr-lang">${label}</span>` +
+              `<input data-file="${escapeHtml(im.file)}" data-layer="${t.id}" data-lang="${code}" value="${escapeHtml(val)}"></label>`;
+          }).join("");
+        card.appendChild(block);
+      }
+      body.appendChild(card);
+    });
+  }
+
+  function readTrInputs() {
+    el("ed-tr-body").querySelectorAll("input[data-lang]").forEach(inp => {
+      const f = inp.getAttribute("data-file"), lid = inp.getAttribute("data-layer"), lang = inp.getAttribute("data-lang");
+      if (lang === "de") { imageText[f] = imageText[f] || {}; imageText[f][lid] = inp.value; }
+      translations[f] = translations[f] || {}; translations[f][lid] = translations[f][lid] || {};
+      translations[f][lid][lang] = inp.value;
+    });
+    saveState();
+  }
+
+  async function autoTranslate() {
+    const status = el("ed-tr-status"); const items = gatherItems();
+    if (!items.length) return;
+    status.textContent = "Übersetze …";
+    try {
+      const r = await fetch(api("/api/translate"), {
+        method: "POST", headers: { ...authHeaders(), "content-type": "application/json" },
+        body: JSON.stringify({ texts: items.map(i => i.source), source: "de", targets: ["en", "fr", "it", "es", "pl"] }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      const tl = (await r.json()).translations || {};
+      items.forEach((it, i) => {
+        translations[it.file] = translations[it.file] || {};
+        translations[it.file][it.layerId] = { de: it.source,
+          en: (tl.en || [])[i] || "", fr: (tl.fr || [])[i] || "", it: (tl.it || [])[i] || "",
+          es: (tl.es || [])[i] || "", pl: (tl.pl || [])[i] || "" };
+      });
+      saveState(); renderTrTable();
+      status.textContent = "Übersetzt — alles editierbar.";
+    } catch (e) {
+      status.textContent = "Auto-Übersetzung nicht verfügbar — Felder manuell ausfüllen.";
+    }
+  }
+
+  // render one image × language × logo-state to a native-resolution PNG data URL
+  function loadFabricImage(url) {
+    return new Promise((res, rej) => F.Image.fromURL(url, im => im ? res(im) : rej(new Error("img")), { crossOrigin: "anonymous" }));
+  }
+  function pickText(file, spec, code) {
+    const tr = translations[file] && translations[file][spec.id];
+    if (tr && tr[code] != null && tr[code] !== "") return tr[code];
+    if (imageText[file] && imageText[file][spec.id] != null) return imageText[file][spec.id];
+    return spec.text || "";
+  }
+  async function composite(file, code, withLogo) {
+    const baseW = template.baseW, baseH = template.baseH;
+    const sc = new F.StaticCanvas(null, { width: baseW, height: baseH, backgroundColor: "#000" });
+    const bg = await loadFabricImage(fullUrl(file));
+    const nW = bg.width, nH = bg.height;
+    bg.set({ left: 0, top: 0, scaleX: baseW / nW, scaleY: baseH / nH, originX: "left", originY: "top" });
+    await new Promise(r => sc.setBackgroundImage(bg, r));
+    for (const spec of template.layers) {
+      if (spec.type === "logo") {
+        if (!withLogo || !spec.src) continue;
+        const im = await loadFabricImage(spec.src);
+        im.set({ originX: "left", originY: "top" }); applyCommon(im, spec); sc.add(im);
+      } else if (spec.type === "container") {
+        const r = new F.Rect({ width: spec.width, height: spec.height, rx: spec.rx || 0, ry: spec.rx || 0,
+          fill: spec.fill || "rgba(10,12,20,0.55)", stroke: spec.stroke || null, strokeWidth: spec.strokeWidth || 0,
+          originX: "left", originY: "top" });
+        applyCommon(r, spec); sc.add(r);
+      } else if (spec.type === "text") {
+        const t = new F.Textbox(pickText(file, spec, code), { width: spec.width || 360, fontSize: spec.fontSize || 44,
+          fill: spec.fill || "#ffffff", fontFamily: spec.fontFamily || "Outfit Variable",
+          textAlign: spec.textAlign || "left", fontWeight: spec.fontWeight || "700", originX: "left", originY: "top" });
+        applyCommon(t, spec); sc.add(t);
+      }
+    }
+    sc.renderAll();
+    const url = sc.toDataURL({ format: "png", multiplier: nW / baseW });
+    sc.dispose();
+    return url;
+  }
+
+  function slug(s) { return String(s || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "unbenannt"; }
+  function baseName(f) { return /\.(png|jpg|jpeg|webp)$/i.test(f) ? f : f + ".png"; }
+  function downloadBlob(blob, name) {
+    const u = URL.createObjectURL(blob); const a = document.createElement("a");
+    a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
+
+  async function buildPack() {
+    if (typeof JSZip === "undefined") { toast("JSZip nicht geladen", "err"); return; }
+    readTrInputs();
+    const status = el("ed-tr-status"); const btn = el("ed-tr-export");
+    btn.disabled = true;
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch { /* ignore */ }
+    const zip = new JSZip();
+    const total = imgs.length * 2 * LANGS.length; let n = 0;
+    try {
+      for (const im of imgs) {
+        const m = imageMeta[im.file] || {};
+        const dir = `${slug(m.art || "produktart")}/${slug(m.name || "name")}/${slug(m.color || "farbe")}`;
+        for (const withLogo of [true, false]) {
+          const lf = withLogo ? "mit-logo" : "ohne-logo";
+          for (const [code, , folder] of LANGS) {
+            const url = await composite(im.file, code, withLogo);
+            zip.file(`${dir}/${lf}/${folder}/${baseName(im.file)}`, url.split(",")[1], { base64: true });
+            n++; status.textContent = `Rendere ${n}/${total} …`;
+          }
+        }
+      }
+      status.textContent = "Packe ZIP …";
+      const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+      downloadBlob(blob, `pack_${(CURRENT_RUN || "run")}.zip`);
+      status.textContent = `Fertig — ${total} Bilder im Pack.`;
+      toast("Pack erstellt & heruntergeladen ✓", "success");
+    } catch (e) {
+      console.error(e); status.textContent = "Fehler beim Rendern: " + (e && e.message || e);
+      toast("Export fehlgeschlagen", "err");
+    } finally { btn.disabled = false; }
+  }
+
   // --- helpers ------------------------------------------------------------
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function toHex(c) {
@@ -302,14 +493,18 @@
     el("ed-front").addEventListener("click", () => reorder(1));
     el("ed-back").addEventListener("click", () => reorder(-1));
     ["ed-meta-art", "ed-meta-name", "ed-meta-color"].forEach(id => el(id).addEventListener("input", saveMeta));
-    el("ed-lang").addEventListener("click", () => toast("Sprachen & Export kommen in Phase 2/3 🚧", "info"));
+    el("ed-lang").addEventListener("click", startExport);
+    el("ed-tr-close").addEventListener("click", closeTrModal);
+    el("ed-tr-cancel").addEventListener("click", closeTrModal);
+    el("ed-tr-retranslate").addEventListener("click", () => { readTrInputs(); autoTranslate(); });
+    el("ed-tr-export").addEventListener("click", buildPack);
     const ob = el("open-editor"); if (ob) ob.addEventListener("click", open);
 
     // keyboard: Delete removes selection, Esc closes
     document.addEventListener("keydown", (e) => {
       if (el("editor").hidden) return;
       if ((e.key === "Delete" || e.key === "Backspace") && canvas && canvas.getActiveObject() && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); delActive(); }
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") { if (!el("ed-tr").hidden) closeTrModal(); else close(); }
     });
 
     // reveal the editor button whenever results exist

@@ -612,3 +612,15 @@ details[open] > summary { margin-bottom: .4rem; }
   .ed-tools button, .ed-tools .ed-logo-btn { width: auto; }
   .ed-props { max-height: 40vh; }
 }
+
+/* translation & pack-export modal */
+.ed-tr-card { width: min(860px, 95vw); }
+.ed-tr-body { max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: .8rem; margin-top: .4rem; }
+.ed-tr-img { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .7rem .8rem; background: var(--panel-2); }
+.ed-tr-h { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .4rem; }
+.ed-tr-n { font-weight: 700; color: var(--accent); }
+.ed-tr-block + .ed-tr-block { margin-top: .55rem; padding-top: .55rem; border-top: 1px dashed var(--border); }
+.ed-tr-lname { margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .06em; }
+.ed-tr-row { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: .5rem; margin: .22rem 0; }
+.ed-tr-lang { color: var(--muted); font-weight: 600; }
+.ed-tr-row input { width: 100%; }

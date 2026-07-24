@@ -142,6 +142,9 @@ def create_app() -> FastAPI:
             "providers": manager.providers_info(),
             "default_master_prompt": DEFAULT_MASTER_PROMPT,
             "budget": manager.budget.summary(),
+            # The editor's auto-translate needs a server-side OpenAI key; the UI
+            # falls back to manual translation entry when this is false.
+            "can_translate": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
         }
 
     # --- start a run ---
@@ -341,6 +344,29 @@ def create_app() -> FastAPI:
     @app.delete("/api/workspaces/{wid}")
     async def ws_del(wid: str, _: None = Depends(require_auth)) -> dict:
         return {"deleted": workspaces.delete(wid)}
+
+    # --- auto-translate captions for the pack export ---
+    @app.post("/api/translate")
+    async def translate(request: Request, _: None = Depends(require_auth)) -> dict:
+        from . import translate as tr
+
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail="invalid json")
+        texts = [str(t) for t in (body.get("texts") or [])]
+        source = str(body.get("source") or "de")
+        targets = body.get("targets") or [c for c in tr.LANGUAGES if c != source]
+        api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not api_key:
+            raise HTTPException(status_code=503, detail="OPENAI_API_KEY not configured")
+        try:
+            translations = await tr.translate_batch(
+                texts, source=source, targets=list(targets), api_key=api_key
+            )
+        except tr.TranslateError as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        return {"translations": translations}
 
     @app.get("/api/health")
     async def health() -> dict:

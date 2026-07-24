@@ -206,15 +206,19 @@ function toast(message, type = "info", ms = 4200) {
 
 // --- Auto-Fill (parse Perplexity text -> master + N agents) --------------
 const PERPLEXITY_TEMPLATE =
-`Du bist Art Director für Produktfotografie.
-Produkt: [HIER PRODUKT KURZ BESCHREIBEN — Marke, Form, Farbe, Material, Label].
+`Du bist Art Director für Produktfotografie. Ich hänge dir ein oder mehrere
+Produktbilder an (bitte genau ansehen und das Produkt exakt erhalten).
+
+Produkt / Kampagne: [HIER KURZ BESCHREIBEN — Marke, Produkt, gewünschter Look/Anlass]
+Anzahl Prompts: 10
 
 Erstelle mir:
 1) einen MASTER-Prompt: globale Regeln, die das Produkt EXAKT erhalten (Form,
    Proportionen, Logo, Label-Text, Material, Farbe) und Setting, Licht, Kamera
    und Qualität festlegen. Auf Englisch.
-2) danach 10 einzelne Bild-Prompts: verschiedene Szenen, Hintergründe, Licht und
-   Kamerawinkel — je 1 Zeile, das Produkt bleibt identisch. Auf Englisch.
+2) danach die einzelnen Bild-Prompts (Anzahl wie oben): verschiedene Szenen,
+   Hintergründe, Licht und Kamerawinkel — je 1 Zeile, Produkt bleibt identisch.
+   Auf Englisch.
 
 Gib die Antwort GENAU in diesem Format aus, ohne weiteren Text:
 
@@ -226,6 +230,19 @@ PROMPTS:
 2. <prompt 2>
 3. <prompt 3>
 ...`;
+
+async function copyPromptWithAnim(btn) {
+  const ok = await (async () => {
+    try { await navigator.clipboard.writeText(PERPLEXITY_TEMPLATE); return true; }
+    catch { return false; }
+  })();
+  if (!ok) { toast("Kopieren nicht möglich — bitte manuell", "warn"); return; }
+  const label = btn.dataset.label || btn.textContent;
+  btn.classList.add("copied");
+  btn.textContent = "✓ Kopiert!";
+  toast("Perplexity-Prompt kopiert — in Perplexity einfügen, Produktinfo + Bilder ergänzen", "success", 5000);
+  setTimeout(() => { btn.classList.remove("copied"); btn.textContent = label; }, 1600);
+}
 
 function extractPrompts(sectionText) {
   const bullet = /^\s*(?:\d+[.)]|[-*•])\s+/;
@@ -478,6 +495,8 @@ function wire() {
   $("#add-agent").addEventListener("click", () => addAgent());
   $("#start").addEventListener("click", startRun);
   $("#stop").addEventListener("click", stopRun);
+  // Perplexity prompt copy (with animation)
+  $("#get-prompt").addEventListener("click", (e) => copyPromptWithAnim(e.currentTarget));
   // Auto-Fill
   $("#auto-open").addEventListener("click", openAuto);
   $("#auto-close").addEventListener("click", closeAuto);

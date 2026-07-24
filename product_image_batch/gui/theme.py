@@ -8,17 +8,18 @@ rounded corners and a gradient on primary buttons (those with objectName
 from __future__ import annotations
 
 # --- palette (kept in sync with web/static/style.css) ----------------------
-BG = "#0a0b0f"
-BG_2 = "#0e1016"
-PANEL = "#14161d"
-PANEL_2 = "#191c24"
-BORDER = "#262a34"
-BORDER_STRONG = "#333846"
+# Palette matched to dennisbf.design (violet -> periwinkle-blue on dark navy).
+BG = "#0a0c15"
+BG_2 = "#0e111c"
+PANEL = "#141824"
+PANEL_2 = "#181d2b"
+BORDER = "#262b3a"
+BORDER_STRONG = "#333b50"
 TEXT = "#eef0f6"
 MUTED = "#8a93a8"
-ACCENT = "#7c8cff"
-ACCENT_2 = "#8b5cf6"
-FIELD = "#141720"
+ACCENT = "#8b9cf5"
+ACCENT_2 = "#9b7ef2"
+FIELD = "#121622"
 
 QSS = f"""
 * {{
@@ -97,11 +98,11 @@ QPushButton#primary {{
     font-weight: 600;
     padding: 8px 18px;
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #6366f1, stop:0.5 #8b5cf6, stop:1 #22d3ee);
+        stop:0 #9b7ef2, stop:0.5 #8b7ff2, stop:1 #7aa8ff);
 }}
 QPushButton#primary:hover {{
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #6f72f4, stop:0.5 #9a6bfb, stop:1 #38dcf0);
+        stop:0 #a78ff5, stop:0.5 #9a8ff5, stop:1 #8fb6ff);
 }}
 QPushButton#primary:disabled {{ background: {PANEL_2}; color: {MUTED}; }}
 
@@ -178,7 +179,7 @@ QProgressBar {{
 QProgressBar::chunk {{
     border-radius: 7px;
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #6366f1, stop:1 #22d3ee);
+        stop:0 #9b7ef2, stop:1 #7aa8ff);
 }}
 
 /* Scroll areas + bars */

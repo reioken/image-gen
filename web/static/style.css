@@ -3,25 +3,26 @@
    gradient accents, soft motion. Light mode via prefers-color-scheme. */
 
 /* ==========================================================================
-   BRANDING — change these 4 values to match your brand, everything follows.
+   BRANDING — change these values to match your brand, everything follows.
    --accent   : solid accent (focus rings, links, active states)
    --grad     : the 2–3 stop gradient (logo, primary buttons, progress bars)
    --grad-soft: a faint tint of the gradient (pills, drag state)
    Presets (copy one over the block below):
-     · Indigo/Cyan (default): #7c8cff  |  135deg #6366f1, #8b5cf6, #22d3ee
-     · Emerald:               #34d399  |  135deg #059669, #10b981, #34d399
-     · Sunset:                #fb7185  |  135deg #f43f5e, #fb7185, #f59e0b
-     · Mono/Slate:            #94a3b8  |  135deg #64748b, #94a3b8, #cbd5e1
+     · dennisbf.design (current): #8b9cf5 | 135deg #9b7ef2, #8b7ff2, #7aa8ff (violet→periwinkle)
+     · Indigo/Cyan:               #7c8cff | 135deg #6366f1, #8b5cf6, #22d3ee
+     · Emerald:                   #34d399 | 135deg #059669, #10b981, #34d399
+     · Sunset:                    #fb7185 | 135deg #f43f5e, #fb7185, #f59e0b
    ========================================================================== */
 :root {
-  --accent: #7c8cff;
-  --grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 48%, #22d3ee 100%);
-  --grad-soft: linear-gradient(135deg, rgba(99,102,241,.22), rgba(34,211,238,.16));
+  --accent: #8b9cf5;
+  --grad: linear-gradient(135deg, #9b7ef2 0%, #8b7ff2 45%, #7aa8ff 100%);
+  --grad-soft: linear-gradient(135deg, rgba(139,127,242,.22), rgba(122,168,255,.16));
+  --glow-rgb: 139, 127, 242;   /* violet, used for button/focus glow */
 }
 
 :root {
-  --bg: #08090d;
-  --bg-2: #0c0e14;
+  --bg: #0a0c15;
+  --bg-2: #0e111c;
   --text: #eef0f6;
   --muted: #8a93a8;
   --panel: rgba(255, 255, 255, 0.045);
@@ -36,9 +37,9 @@
   --ok: #34d399;
   --warn: #fbbf24;
   --error: #fb7185;
-  --ring: 0 0 0 3px rgba(124, 140, 255, 0.28);
-  --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
-  --shadow-glow: 0 8px 30px rgba(99, 102, 241, 0.35);
+  --ring: 0 0 0 3px rgba(139, 127, 242, 0.30);
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 8px 30px rgba(139, 127, 242, 0.4);
   --radius: 18px;
   --radius-sm: 12px;
 }
@@ -68,9 +69,9 @@ body {
 .bg-glow {
   position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
   background:
-    radial-gradient(60vw 60vw at 18% -10%, rgba(99,102,241,0.22), transparent 60%),
-    radial-gradient(55vw 55vw at 100% 0%, rgba(34,211,238,0.16), transparent 55%),
-    radial-gradient(50vw 50vw at 50% 120%, rgba(139,92,246,0.18), transparent 60%);
+    radial-gradient(60vw 60vw at 18% -10%, rgba(155,126,242,0.22), transparent 60%),
+    radial-gradient(55vw 55vw at 100% 0%, rgba(122,168,255,0.18), transparent 55%),
+    radial-gradient(50vw 50vw at 50% 120%, rgba(139,127,242,0.18), transparent 60%);
   filter: saturate(1.1);
   animation: drift 24s ease-in-out infinite alternate;
 }

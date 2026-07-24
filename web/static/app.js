@@ -17,6 +17,91 @@ let REFERENCES = [];   // File[]
 let MASK = null;       // File | null
 let CURRENT_RUN = null;
 let EVT = null;
+let _restoring = false;   // true while rebuilding saved results (skip re-saving)
+
+// --- local persistence (so a reload never loses your work) ---------------
+// Text (master prompt + agent config) goes in localStorage; reference/mask
+// images go in IndexedDB (localStorage is too small for photos).
+const DRAFT = {
+  _t: null,
+  save() {
+    if (_restoring) return;
+    clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      try {
+        localStorage.setItem("pib_draft_master", $("#master-prompt")?.value ?? "");
+        localStorage.setItem("pib_draft_agents", JSON.stringify(collectAgents()));
+      } catch { /* quota — ignore */ }
+    }, 300);
+  },
+  master() { return localStorage.getItem("pib_draft_master"); },
+  agents() { try { return JSON.parse(localStorage.getItem("pib_draft_agents") || "null"); } catch { return null; } },
+  clearAll() {
+    ["pib_draft_master", "pib_draft_agents", "pib_last_run"].forEach(k => localStorage.removeItem(k));
+    idbDel("refs"); idbDel("mask");
+  },
+};
+
+const IDB = { name: "pib_store", store: "files", ver: 1 };
+function idbOpen() {
+  return new Promise((res, rej) => {
+    let r;
+    try { r = indexedDB.open(IDB.name, IDB.ver); } catch (e) { return rej(e); }
+    r.onupgradeneeded = () => { try { r.result.createObjectStore(IDB.store); } catch { /* exists */ } };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(key, val) {
+  try {
+    const db = await idbOpen();
+    await new Promise((res, rej) => { const tx = db.transaction(IDB.store, "readwrite"); tx.objectStore(IDB.store).put(val, key); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+  } catch { /* ignore */ }
+}
+async function idbGet(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((res, rej) => { const tx = db.transaction(IDB.store, "readonly"); const rq = tx.objectStore(IDB.store).get(key); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); });
+  } catch { return undefined; }
+}
+async function idbDel(key) {
+  try {
+    const db = await idbOpen();
+    await new Promise((res) => { const tx = db.transaction(IDB.store, "readwrite"); tx.objectStore(IDB.store).delete(key); tx.oncomplete = () => res(); tx.onerror = () => res(); });
+  } catch { /* ignore */ }
+}
+function saveRefs() { idbSet("refs", REFERENCES.slice()); idbSet("mask", MASK || null); }
+
+let RESULTS_LOG = [];   // {file, promptId, provider, model} for the current run
+let _lastRunT = null;
+function saveLastRun() {
+  if (_restoring) return;
+  clearTimeout(_lastRunT);
+  _lastRunT = setTimeout(() => {
+    try { localStorage.setItem("pib_last_run", JSON.stringify({ run_id: CURRENT_RUN, images: RESULTS_LOG })); } catch { /* ignore */ }
+  }, 400);
+}
+async function restoreLastRun() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem("pib_last_run") || "null"); } catch { saved = null; }
+  if (!saved || !saved.run_id || !Array.isArray(saved.images) || !saved.images.length) return;
+  // The container may have restarted (free hosting) and dropped the files —
+  // only rebuild if the first image is still served, else forget the run.
+  const first = saved.images[0];
+  const testUrl = api(`/api/run/${saved.run_id}/image/${encodeURIComponent(first.file)}?token=${encodeURIComponent(store.token)}&thumb=1`);
+  let ok = false;
+  try { const r = await fetch(testUrl); ok = r.ok; } catch { ok = false; }
+  if (!ok) { localStorage.removeItem("pib_last_run"); return; }
+  _restoring = true;
+  CURRENT_RUN = saved.run_id;
+  RESULT_COUNT = 0; RESULTS_LOG = [];
+  loadFavorites();
+  $("#gallery").innerHTML = "";
+  for (const im of saved.images) addResult(saved.run_id, im.file, im.promptId, im.provider, im.model);
+  _restoring = false;
+  saveLastRun();
+  if (RESULT_COUNT) toast(`${RESULT_COUNT} Ergebnis(se) wiederhergestellt`, "info", 2500);
+}
 
 // Default number of versions (images) generated per agent/prompt. Users can
 // override per agent or via Settings; this is the "always N versions" default.
@@ -69,6 +154,7 @@ function applyMasterTemplate(key) {
   const t = MASTER_TEMPLATES[key];
   if (!t) return;
   $("#master-prompt").value = t;
+  DRAFT.save();
   toast("Master-Vorlage eingesetzt — bei Bedarf anpassen", "success");
 }
 
@@ -114,7 +200,7 @@ function renderRefThumbs() {
     img.src = URL.createObjectURL(file);
     const rm = document.createElement("button");
     rm.textContent = "✕";
-    rm.onclick = () => { REFERENCES.splice(i, 1); renderRefThumbs(); };
+    rm.onclick = () => { REFERENCES.splice(i, 1); renderRefThumbs(); saveRefs(); };
     const name = document.createElement("div");
     name.className = "name";
     name.textContent = file.name;
@@ -129,6 +215,18 @@ function addReferenceFiles(fileList) {
     REFERENCES.push(f);
   }
   renderRefThumbs();
+  saveRefs();
+}
+
+function renderMaskThumb() {
+  const host = $("#mask-thumbs");
+  host.innerHTML = "";
+  if (MASK) {
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(MASK);
+    img.style.width = "88px"; img.style.borderRadius = "8px";
+    host.appendChild(img);
+  }
 }
 
 function setupDropzone() {
@@ -143,14 +241,8 @@ function setupDropzone() {
   $("#ref-input").addEventListener("change", e => addReferenceFiles(e.target.files));
   $("#mask-input").addEventListener("change", e => {
     MASK = e.target.files[0] || null;
-    const host = $("#mask-thumbs");
-    host.innerHTML = "";
-    if (MASK) {
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(MASK);
-      img.style.width = "88px"; img.style.borderRadius = "8px";
-      host.appendChild(img);
-    }
+    renderMaskThumb();
+    saveRefs();
   });
 }
 
@@ -198,10 +290,13 @@ function addAgent(preset) {
   if (images) row.querySelector(".images").value = images;
   const size = (preset && preset.size) || d.size;
   if (size) row.querySelector(".size").value = size;
+  if (preset && preset.seed != null && preset.seed !== "") row.querySelector(".seed").value = preset.seed;
+  if (preset && preset.strength != null && preset.strength !== "") row.querySelector(".strength").value = preset.strength;
 
-  row.querySelector(".remove").addEventListener("click", () => { row.remove(); updateScope(); });
+  row.querySelector(".remove").addEventListener("click", () => { row.remove(); updateScope(); DRAFT.save(); });
   $("#agents").appendChild(row);
   updateScope();
+  DRAFT.save();
   return row;
 }
 
@@ -527,6 +622,7 @@ function applyAuto() {
   });
   closeAuto();
   updateScope();
+  DRAFT.save();
   const total = prompts.length * providers.length;
   toast(`${total} Agent(en) angelegt — ${prompts.length} Prompt(s) × ${providers.length} Provider${master ? " + Master-Prompt" : ""}`, "success");
 }
@@ -642,7 +738,7 @@ async function startRun(opts = {}) {
   gal.innerHTML = ""; gal.classList.remove("only-fav");
   $("#filter-fav").setAttribute("aria-pressed", "false");
   $("#filter-fav").classList.remove("active");
-  RESULT_COUNT = 0; FAVORITES = new Set();
+  RESULT_COUNT = 0; FAVORITES = new Set(); RESULTS_LOG = [];
   initAgentProgress();
   setOverallProgress(0, 0);
   document.querySelectorAll(".agent-status").forEach(s => { s.textContent = "wartet auf Anbieter", s.dataset.state = "queue"; });
@@ -815,6 +911,8 @@ function addResult(runId, filename, promptId, provider, model) {
   g.querySelector(".rg-count").textContent = g.dataset.n;
   RESULT_COUNT++;
   updateResultsToolbar();
+  RESULTS_LOG.push({ file: filename, promptId: promptId || "", provider: provider || "", model: model || "" });
+  saveLastRun();
 }
 
 async function stopRun() {
@@ -883,6 +981,36 @@ function runScope() {
   }, 0);
   return { count: agents.length, images, est };
 }
+// Clear the saved draft + current work (two-tap confirm to avoid accidents).
+let _resetArm = false;
+function resetAll(btn) {
+  if (!_resetArm) {
+    _resetArm = true;
+    btn.dataset.orig = btn.textContent;
+    btn.textContent = "Wirklich? Nochmal tippen";
+    btn.classList.add("danger-btn");
+    setTimeout(() => { _resetArm = false; btn.textContent = btn.dataset.orig || "🗑 Zurücksetzen"; btn.classList.remove("danger-btn"); }, 3000);
+    return;
+  }
+  _resetArm = false;
+  btn.textContent = btn.dataset.orig || "🗑 Zurücksetzen";
+  btn.classList.remove("danger-btn");
+  try { localStorage.removeItem(favKey()); } catch { /* ignore */ }
+  DRAFT.clearAll();
+  document.querySelectorAll(".agent").forEach(a => a.remove());
+  agentCounter = 0;
+  $("#master-prompt").value = CONFIG.default_master_prompt || "";
+  REFERENCES = []; MASK = null; renderRefThumbs(); renderMaskThumb();
+  RESULT_COUNT = 0; RESULTS_LOG = []; FAVORITES = new Set(); CURRENT_RUN = null;
+  const gal = $("#gallery");
+  gal.classList.remove("only-fav");
+  gal.innerHTML = '<p class="empty muted">Noch keine Ergebnisse. Nach dem Start erscheinen hier alle Varianten — gruppiert nach Prompt und KI-Anbieter.</p>';
+  updateResultsToolbar();
+  addAgent();
+  updateScope();
+  toast("Alles zurückgesetzt", "success");
+}
+
 function updateScope() {
   const el = $("#scope");
   if (!el) return;
@@ -930,10 +1058,39 @@ async function enterApp() {
   await loadConfig();
   $("#login").hidden = true;
   $("#app").hidden = false;
-  $("#master-prompt").value = CONFIG.default_master_prompt || "";
-  if (!document.querySelector(".agent")) addAgent();
+
+  // Restore a saved draft (master prompt + agents) so a reload keeps your work.
+  _restoring = true;
+  const dm = DRAFT.master();
+  $("#master-prompt").value = dm != null ? dm : (CONFIG.default_master_prompt || "");
+  document.querySelectorAll(".agent").forEach(a => a.remove());
+  agentCounter = 0;
+  const da = DRAFT.agents();
+  if (Array.isArray(da) && da.length) da.forEach(a => addAgent(a));
+  else addAgent();
+  _restoring = false;
+
   updateBudget(CONFIG.budget || {});
   updateScope();
+
+  // Restore reference/mask images (IndexedDB) and, if still on the server, the
+  // last run's results.
+  let restoredRefs = 0;
+  try {
+    const refs = await idbGet("refs");
+    if (Array.isArray(refs) && refs.length) {
+      REFERENCES = refs.filter(f => f instanceof Blob);
+      renderRefThumbs();
+      restoredRefs = REFERENCES.length;
+    }
+    const mask = await idbGet("mask");
+    if (mask instanceof Blob) { MASK = mask; renderMaskThumb(); }
+  } catch { /* ignore */ }
+  await restoreLastRun();
+
+  if (restoredRefs || (Array.isArray(da) && da.length)) {
+    toast("Entwurf wiederhergestellt", "info", 2200);
+  }
 }
 
 function wire() {
@@ -980,9 +1137,11 @@ function wire() {
     const dx = e.changedTouches[0].clientX - _sx, dy = e.changedTouches[0].clientY - _sy;
     if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) lbNav(dx < 0 ? 1 : -1);
   }, { passive: true });
-  $("#reset-master").addEventListener("click", () => $("#master-prompt").value = CONFIG.default_master_prompt || "");
-  $("#clear-master").addEventListener("click", () => $("#master-prompt").value = "");
+  $("#reset-master").addEventListener("click", () => { $("#master-prompt").value = CONFIG.default_master_prompt || ""; DRAFT.save(); });
+  $("#clear-master").addEventListener("click", () => { $("#master-prompt").value = ""; DRAFT.save(); });
+  $("#master-prompt").addEventListener("input", () => DRAFT.save());
   $("#add-agent").addEventListener("click", () => addAgent());
+  $("#reset-all").addEventListener("click", (e) => resetAll(e.currentTarget));
   $("#start").addEventListener("click", () => startRun());
   $("#test-run").addEventListener("click", () => startRun({ testRun: true }));
   $("#stop").addEventListener("click", stopRun);
@@ -991,8 +1150,8 @@ function wire() {
   $("#download-zip").addEventListener("click", downloadAllZip);
   $("#download-fav").addEventListener("click", downloadFavorites);
   $("#filter-fav").addEventListener("click", toggleFavFilter);
-  $("#agents").addEventListener("input", updateScope);
-  $("#agents").addEventListener("change", updateScope);
+  $("#agents").addEventListener("input", () => { updateScope(); DRAFT.save(); });
+  $("#agents").addEventListener("change", () => { updateScope(); DRAFT.save(); });
   // Confirm-before-start modal
   $("#confirm-ok").addEventListener("click", () => closeConfirm(true));
   $("#confirm-cancel").addEventListener("click", () => closeConfirm(false));

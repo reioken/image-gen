@@ -19,11 +19,15 @@ rewrite:
     - "Do not invent a different product, do not change brand marks, do not add extra labels or extra products."
     - "Only change scene, lighting, background, camera angle and styling unless explicitly requested."
     - "NO ADDED TEXT: do not add any text, words, letters, captions, headlines, watermarks, signatures, signage, stickers, typography or extra logos anywhere in the image. Keep the background and scene completely free of writing. The only text allowed is what is already physically printed on the product itself — never add, translate or invent text."
+    - "SINGLE IMAGE ONLY: output exactly ONE photorealistic product photograph that fills the entire frame as a single continuous scene. Never produce a collage, photo grid, contact sheet, montage, mosaic, storyboard, moodboard, split-screen, side-by-side comparison, multiple panels, insets, thumbnails, tiled images or several pictures combined into one — just one clean single image."
 
   mask_instruction: "Only edit the masked / background area; keep the product completely unchanged."
 
   # Default negative prompt for providers that support one.
   default_negative_prompt: >-
+    collage, photo grid, contact sheet, montage, mosaic, storyboard, moodboard,
+    split screen, side-by-side, multiple panels, multiple images, tiled images,
+    thumbnails, insets, picture-in-picture, diptych, triptych, comparison sheet,
     warped logo, changed label text, extra products, incorrect cap, melted
     geometry, distorted proportions, low-res, blurry, watermark, watermarks,
     added text, caption, captions, headline, lettering, typography, words,

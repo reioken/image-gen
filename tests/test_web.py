@@ -86,7 +86,10 @@ def test_run_streams_images_with_mock(client):
                     assert ev["succeeded"] == 3
                     break
     assert images == 3
-    assert "started" in events and "image" in events and "done" in events
+    # Progress contract: a task is first "queued" (accepted, maybe waiting on a
+    # provider limit), then "running" (real API call started), then "image".
+    assert "queued" in events and "running" in events
+    assert "image" in events and "done" in events
 
 
 def test_run_requires_reference(client):

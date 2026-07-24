@@ -398,6 +398,124 @@ function toast(message, type = "info", ms = 4200) {
   setTimeout(kill, ms);
 }
 
+// --- Projects (server-side, cross-device) --------------------------------
+function openProjects() {
+  $("#project-name").value = "";
+  loadProjectList();
+  const m = $("#projects");
+  m.hidden = false;
+  requestAnimationFrame(() => m.classList.add("show"));
+}
+function closeProjects() {
+  const m = $("#projects");
+  m.classList.remove("show");
+  setTimeout(() => { m.hidden = true; }, 200);
+}
+function fmtDate(iso) {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+  catch { return String(iso).slice(0, 16).replace("T", " "); }
+}
+async function loadProjectList() {
+  const host = $("#project-list");
+  host.innerHTML = '<p class="muted small">Wird geladen…</p>';
+  try {
+    const res = await fetch(api("/api/workspaces"), { headers: authHeaders() });
+    if (!res.ok) throw new Error();
+    const { workspaces } = await res.json();
+    if (!workspaces.length) { host.innerHTML = '<p class="muted small">Noch keine Projekte gespeichert.</p>'; return; }
+    host.innerHTML = "";
+    for (const w of workspaces) {
+      const row = document.createElement("div");
+      row.className = "project-row";
+      const info = document.createElement("div");
+      info.className = "project-info";
+      const nm = document.createElement("div");
+      nm.className = "project-name-lbl";
+      nm.textContent = w.name;
+      const meta = document.createElement("div");
+      meta.className = "muted small";
+      meta.textContent = `${w.agents} Set(s) · ${w.refs} Bild(er) · ${fmtDate(w.updated_at)}`;
+      info.append(nm, meta);
+      const load = document.createElement("button");
+      load.className = "ghost sm"; load.textContent = "Laden";
+      load.addEventListener("click", () => loadProject(w.id));
+      const del = document.createElement("button");
+      del.className = "ghost sm"; del.textContent = "🗑"; del.title = "Löschen";
+      del.dataset.arm = "0";
+      del.addEventListener("click", () => {
+        if (del.dataset.arm === "0") {
+          del.dataset.arm = "1"; del.textContent = "sicher?"; del.classList.add("danger-btn");
+          setTimeout(() => { del.dataset.arm = "0"; del.textContent = "🗑"; del.classList.remove("danger-btn"); }, 3000);
+          return;
+        }
+        deleteProject(w.id);
+      });
+      row.append(info, load, del);
+      host.appendChild(row);
+    }
+  } catch { host.innerHTML = '<p class="error small">Konnte Projekte nicht laden.</p>'; }
+}
+async function saveProject() {
+  const btn = $("#project-save");
+  const fd = new FormData();
+  fd.append("config", JSON.stringify({
+    name: $("#project-name").value.trim() || "Projekt",
+    master_prompt: $("#master-prompt").value,
+    agents: collectAgents(),
+  }));
+  REFERENCES.forEach(f => fd.append("references", f, f.name));
+  if (MASK) fd.append("mask", MASK, MASK.name);
+  btn.disabled = true;
+  try {
+    const res = await fetch(api("/api/workspaces"), { method: "POST", headers: authHeaders(), body: fd });
+    if (!res.ok) throw new Error();
+    toast("Projekt gespeichert", "success");
+    $("#project-name").value = "";
+    loadProjectList();
+  } catch { toast("Speichern fehlgeschlagen", "error"); }
+  finally { btn.disabled = false; }
+}
+async function fetchAsFile(url, name) {
+  const r = await fetch(url);
+  if (!r.ok) return null;
+  const blob = await r.blob();
+  return new File([blob], name, { type: blob.type || "image/png" });
+}
+async function loadProject(id) {
+  try {
+    const res = await fetch(api(`/api/workspaces/${id}`), { headers: authHeaders() });
+    if (!res.ok) throw new Error();
+    const w = await res.json();
+    _restoring = true;
+    $("#master-prompt").value = w.master_prompt || "";
+    document.querySelectorAll(".agent").forEach(a => a.remove());
+    agentCounter = 0;
+    (w.agents || []).forEach(a => addAgent(a));
+    if (!document.querySelector(".agent")) addAgent();
+    _restoring = false;
+    REFERENCES = [];
+    for (const name of (w.refs || [])) {
+      const f = await fetchAsFile(api(`/api/workspaces/${id}/ref/${encodeURIComponent(name)}?token=${encodeURIComponent(store.token)}`), name);
+      if (f) REFERENCES.push(f);
+    }
+    MASK = null;
+    if (w.mask) MASK = await fetchAsFile(api(`/api/workspaces/${id}/mask?token=${encodeURIComponent(store.token)}`), w.mask);
+    renderRefThumbs(); renderMaskThumb();
+    saveRefs(); DRAFT.save(); updateScope();
+    closeProjects();
+    toast(`Projekt „${w.name}“ geladen`, "success");
+  } catch { toast("Laden fehlgeschlagen", "error"); }
+}
+async function deleteProject(id) {
+  try {
+    const res = await fetch(api(`/api/workspaces/${id}`), { method: "DELETE", headers: authHeaders() });
+    if (!res.ok) throw new Error();
+    toast("Projekt gelöscht", "warn");
+    loadProjectList();
+  } catch { toast("Löschen fehlgeschlagen", "error"); }
+}
+
 // --- Settings ------------------------------------------------------------
 function openSettings() {
   // provider status
@@ -1109,6 +1227,11 @@ function wire() {
   });
   $("#logout").addEventListener("click", logout);
   // Settings
+  // Projects
+  $("#projects-open").addEventListener("click", openProjects);
+  $("#projects-close").addEventListener("click", closeProjects);
+  $("#project-save").addEventListener("click", saveProject);
+  $("#projects").addEventListener("click", (e) => { if (e.target.id === "projects") closeProjects(); });
   $("#settings-open").addEventListener("click", openSettings);
   $("#settings-close").addEventListener("click", closeSettings);
   $("#settings-cancel").addEventListener("click", closeSettings);

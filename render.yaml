@@ -46,6 +46,12 @@ services:
         sync: false
       - key: PIB_OPENAI_RPM
         sync: false
+      # --- optional: where saved projects (cross-device workspaces) live ---
+      # Point this at a path on a persistent disk (see the disk block below) so
+      # saved projects survive restarts. Without a disk they are ephemeral,
+      # just like outputs/. Empty = <app>/workspaces.
+      - key: WEB_WORKSPACES_DIR
+        sync: false
       # --- provider keys: fill in only the ones you use; leave others blank ---
       - key: OPENAI_API_KEY
         sync: false

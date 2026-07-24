@@ -38,6 +38,7 @@ from product_image_batch.core.prompting import DEFAULT_MASTER_PROMPT
 from product_image_batch.core.utils import images as imgutil
 from product_image_batch.core.utils.logging import get_logger, setup_logging
 from .runmanager import RunManager
+from .workspaces import WorkspaceStore
 
 log = get_logger("web.server")
 
@@ -101,6 +102,8 @@ def create_app() -> FastAPI:
     setup_logging(verbose=False, to_file=True)
     app = FastAPI(title="Product Image Batch — Web")
     manager = RunManager()
+    ws_root = Path(os.environ.get("WEB_WORKSPACES_DIR", "").strip() or (Path.cwd() / "workspaces"))
+    workspaces = WorkspaceStore(ws_root)
 
     origins = [o.strip() for o in os.environ.get("WEB_CORS_ORIGINS", "*").split(",") if o.strip()]
     app.add_middleware(
@@ -279,6 +282,65 @@ def create_app() -> FastAPI:
             zpath, media_type="application/zip", filename=f"{run_id}.zip",
             headers={"Cache-Control": "private, max-age=60"},
         )
+
+    # --- saved projects / workspaces (cross-device) ---
+    @app.get("/api/workspaces")
+    async def ws_list(_: None = Depends(require_auth)) -> dict:
+        return {"workspaces": workspaces.list()}
+
+    @app.post("/api/workspaces")
+    async def ws_save(request: Request, _: None = Depends(require_auth)) -> dict:
+        form = await request.form()
+        try:
+            cfg = json.loads(form.get("config") or "{}")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="invalid config json")
+        ref_files: list[tuple[str, bytes]] = []
+        for f in form.getlist("references"):
+            if isinstance(f, UploadFile):
+                ref_files.append((f.filename or "ref.png", await f.read()))
+        mask_file = None
+        mfs = form.getlist("mask")
+        if mfs and isinstance(mfs[0], UploadFile):
+            mask_file = (mfs[0].filename or "mask.png", await mfs[0].read())
+        rec = workspaces.save(
+            name=cfg.get("name", "Projekt"),
+            master_prompt=cfg.get("master_prompt", ""),
+            agents=cfg.get("agents", []),
+            ref_files=ref_files,
+            mask_file=mask_file,
+            wid=cfg.get("id"),
+        )
+        return {"id": rec["id"], "name": rec["name"], "updated_at": rec["updated_at"]}
+
+    @app.get("/api/workspaces/{wid}")
+    async def ws_get(wid: str, _: None = Depends(require_auth)) -> dict:
+        data = workspaces.get(wid)
+        if data is None:
+            raise HTTPException(status_code=404, detail="unknown workspace")
+        return data
+
+    @app.get("/api/workspaces/{wid}/ref/{name}")
+    async def ws_ref(wid: str, name: str, request: Request) -> FileResponse:
+        if not verify_token(_token_from_request(request)):
+            raise HTTPException(status_code=401, detail="unauthorized")
+        p = workspaces.ref_path(wid, name)
+        if p is None:
+            raise HTTPException(status_code=404, detail="not found")
+        return FileResponse(p, headers={"Cache-Control": "private, max-age=3600"})
+
+    @app.get("/api/workspaces/{wid}/mask")
+    async def ws_mask(wid: str, request: Request) -> FileResponse:
+        if not verify_token(_token_from_request(request)):
+            raise HTTPException(status_code=401, detail="unauthorized")
+        p = workspaces.mask_path(wid)
+        if p is None:
+            raise HTTPException(status_code=404, detail="not found")
+        return FileResponse(p, headers={"Cache-Control": "private, max-age=3600"})
+
+    @app.delete("/api/workspaces/{wid}")
+    async def ws_del(wid: str, _: None = Depends(require_auth)) -> dict:
+        return {"deleted": workspaces.delete(wid)}
 
     @app.get("/api/health")
     async def health() -> dict:

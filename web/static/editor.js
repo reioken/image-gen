@@ -61,6 +61,7 @@
     el("editor").hidden = false;
     requestAnimationFrame(() => el("editor").classList.add("show"));
     if (!canvas) initCanvas();
+    loadLogoPresets();
     buildFilmstrip();
     loadImage(0);
   }
@@ -185,15 +186,41 @@
     imageText[curFile] = imageText[curFile] || {}; imageText[curFile][spec.id] = spec.text;
     renderLayers(); selectLayer(spec.id); saveState();
   }
-  function addLogo(dataUrl) {
-    lastLogo = dataUrl;
-    const spec = { id: nid(), type: "logo", src: dataUrl, left: 24, top: 24, opacity: 1, shadow: false, scaleX: 1, scaleY: 1, angle: 0 };
+  function addLogo(src) {
+    lastLogo = src;
+    const spec = { id: nid(), type: "logo", src: src, left: 24, top: 24, opacity: 1, shadow: false, scaleX: 1, scaleY: 1, angle: 0 };
     // scale so the logo is ~18% of canvas width
-    F.Image.fromURL(dataUrl, (im) => {
-      const target = canvas.width * 0.18; const s = target / im.width;
+    F.Image.fromURL(src, (im) => {
+      const target = canvas.width * 0.18; const s = im.width ? target / im.width : 1;
       spec.scaleX = s; spec.scaleY = s;
       template.layers.push(spec); renderLayers(); selectLayer(spec.id); saveState();
-    });
+    }, { crossOrigin: "anonymous" });
+  }
+
+  // Prefab logos are bundled same-origin, so the canvas stays untainted on
+  // export. The manifest lists { id, name, file } under static/logos/.
+  async function loadLogoPresets() {
+    const host = el("ed-logo-presets");
+    if (!host) return;
+    host.innerHTML = "";
+    let list = [];
+    try {
+      const r = await fetch(api("/logos/manifest.json"), { cache: "no-cache" });
+      if (r.ok) list = (await r.json()).logos || [];
+    } catch { /* ignore */ }
+    if (!list.length) {
+      host.innerHTML = `<span class="muted small">Noch keine Prefab-Logos hinterlegt.</span>`;
+      return;
+    }
+    for (const lg of list) {
+      const b = document.createElement("button");
+      b.className = "ed-logo-preset"; b.title = lg.name || lg.file;
+      const src = api(`/logos/${lg.file}`);
+      const img = document.createElement("img"); img.src = src; img.alt = lg.name || "";
+      b.appendChild(img);
+      b.addEventListener("click", () => addLogo(src));
+      host.appendChild(b);
+    }
   }
 
   function selectLayer(id) {

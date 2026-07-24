@@ -624,3 +624,13 @@ details[open] > summary { margin-bottom: .4rem; }
 .ed-tr-row { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: .5rem; margin: .22rem 0; }
 .ed-tr-lang { color: var(--muted); font-weight: 600; }
 .ed-tr-row input { width: 100%; }
+
+/* prefab logo picker in the editor tools */
+.ed-logo-presets { display: flex; flex-wrap: wrap; gap: .4rem; }
+.ed-logo-preset {
+  width: 100%; min-height: 0; padding: .4rem .5rem; border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.ed-logo-preset:hover { background: var(--panel-strong); border-color: var(--accent); }
+.ed-logo-preset img { max-width: 100%; max-height: 42px; object-fit: contain; display: block; }

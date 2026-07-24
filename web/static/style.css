@@ -249,10 +249,15 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
   margin-bottom: .7rem; background: var(--panel-2); transition: border-color .18s, transform .18s;
 }
 .agent:hover { border-color: var(--border-strong); }
-.agent-head { display: grid; grid-template-columns: auto 1fr 1.4fr auto auto; gap: .6rem; align-items: end; }
+.agent-head { display: grid; grid-template-columns: auto 1fr 130px auto; gap: .6rem; align-items: end; }
 .agent-head > .agent-label { align-self: center; font-weight: 640; }
 .agent .prompt { margin: .65rem 0; }
-.agent-params { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: .6rem; align-items: center; }
+.agent-adv { margin: .2rem 0 .1rem; }
+.agent-adv > summary { cursor: pointer; font-size: .8rem; color: var(--muted); font-weight: 600; padding: .3rem 0; list-style: none; }
+.agent-adv > summary::before { content: "⚙ "; opacity: .7; }
+.agent-adv[open] > summary { margin-bottom: .5rem; }
+.agent-params { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; align-items: center; }
+.agent-statusrow { display: flex; justify-content: flex-end; margin-top: .6rem; }
 .agent-status {
   justify-self: end; font-size: .78rem; font-weight: 600; color: var(--muted);
   padding: .22rem .6rem; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border);
@@ -391,6 +396,29 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
 .confirm-text .muted { font-size: .82rem; }
 .danger { color: var(--warn); font-weight: 600; }
 
+/* live scope line + favourite star + filter */
+.scope { white-space: nowrap; }
+.result-item { position: relative; }
+.fav-star {
+  position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; min-height: 0; padding: 0;
+  display: grid; place-items: center; border-radius: 50%; font-size: 15px; line-height: 1;
+  color: #fff; background: rgba(10,11,15,.55); border: 1px solid rgba(255,255,255,.28);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); text-transform: none;
+  opacity: 0; transition: opacity .15s, transform .15s, color .15s;
+}
+.result-item:hover .fav-star, .result-item.is-fav .fav-star { opacity: 1; }
+.result-item.is-fav .fav-star { color: #ffd76a; border-color: rgba(255,215,106,.6); background: rgba(10,11,15,.72); }
+.fav-star:hover { transform: scale(1.1); }
+@media (pointer: coarse) { .fav-star { opacity: 1; } }   /* no hover on touch */
+#gallery.only-fav .result-item:not(.is-fav) { display: none; }
+#gallery.only-fav .result-group:not(:has(.result-item.is-fav)) { display: none; }
+#filter-fav.active { color: #ffd76a; border-color: rgba(255,215,106,.5); background: rgba(255,215,106,.12); }
+
+/* visible keyboard focus (WCAG 2.2) */
+button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
 /* scrollbar */
 * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -403,12 +431,11 @@ details[open] > summary { margin-bottom: .4rem; }
 @media (max-width: 680px) {
   main { padding: .4rem .7rem 3rem; }
   .panel { padding: 1rem .9rem; }
-  /* Agent 1 (label) | provider ; then model full row ; images | remove */
+  /* Agent 1 (label) full row · Anbieter full row · Varianten | remove */
   .agent-head { grid-template-columns: 1fr auto; }
   .agent-head > .agent-label { grid-column: 1 / -1; }
-  .agent-head > label:nth-of-type(2) { grid-column: 1 / -1; }  /* model input */
+  .agent-head > label:first-of-type { grid-column: 1 / -1; }  /* provider */
   .agent-params { grid-template-columns: 1fr 1fr; }
-  .agent-params .agent-status { grid-column: 1 / -1; justify-self: start; white-space: normal; }
   .topbar { top: 0; margin: 0; border-radius: 0; padding-top: max(.6rem, env(safe-area-inset-top)); }
   .gallery, .result-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   /* the overall progress bar drops onto its own full-width line under the buttons */

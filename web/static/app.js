@@ -18,6 +18,10 @@ let MASK = null;       // File | null
 let CURRENT_RUN = null;
 let EVT = null;
 
+// Default number of versions (images) generated per agent/prompt. Users can
+// override per agent or via Settings; this is the "always N versions" default.
+const DEFAULT_IMAGES = 20;
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const api = (path) => `${store.apiBase}${path}`;
 
@@ -140,7 +144,7 @@ function addAgent(preset) {
   const model = (preset && preset.model) || d.model;
   if (model) modelInput.value = model;
   if (preset && preset.prompt) row.querySelector(".prompt").value = preset.prompt;
-  const images = (preset && preset.images) || d.images;
+  const images = (preset && preset.images) || d.images || DEFAULT_IMAGES;
   if (images) row.querySelector(".images").value = images;
   const size = (preset && preset.size) || d.size;
   if (size) row.querySelector(".size").value = size;
@@ -275,7 +279,7 @@ function openSettings() {
   };
   setSel.onchange = syncSetModels; syncSetModels();
   $("#set-model").value = d.model || "";
-  $("#set-images").value = d.images || 1;
+  $("#set-images").value = d.images || DEFAULT_IMAGES;
   $("#set-size").value = d.size || "1024x1024";
   $("#set-apibase").value = store.apiBase;
 
@@ -454,7 +458,7 @@ function applyAuto() {
   prompts.forEach(p => {
     providers.forEach(prov => {
       const cfg = CONFIG.providers.find(x => x.name === prov);
-      addAgent({ provider: prov, model: cfg ? cfg.default_model : "", prompt: p, images: 1 });
+      addAgent({ provider: prov, model: cfg ? cfg.default_model : "", prompt: p, images: store.defaults().images || DEFAULT_IMAGES });
     });
   });
   closeAuto();

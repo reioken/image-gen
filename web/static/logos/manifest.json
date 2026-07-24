@@ -1,3 +1,8 @@
 {
-  "logos": []
+  "logos": [
+    { "id": "casa-pura",           "name": "Casa Pura",              "file": "casa-pura.png" },
+    { "id": "floordirekt-weiss",   "name": "Floordirekt (weißer Claim)", "file": "floordirekt-weiss-claim.png" },
+    { "id": "floordirekt-ohne",    "name": "Floordirekt (ohne Claim)",   "file": "floordirekt-ohne-claim.png" },
+    { "id": "floordirekt-claim",   "name": "Floordirekt (Claim dunkel)", "file": "floordirekt-mit-claim.png" }
+  ]
 }

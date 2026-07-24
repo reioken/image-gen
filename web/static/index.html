@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#eef1f7" media="(prefers-color-scheme: light)" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Product Image Batch</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=13" />
-  <link rel="apple-touch-icon" href="favicon-180.png?v=13" />
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="icon" type="image/png" href="favicon.png?v=14" />
+  <link rel="apple-touch-icon" href="favicon-180.png?v=14" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
@@ -269,10 +269,25 @@ PROMPTS:
 
   <!-- Fullscreen lightbox -->
   <div id="lightbox" class="lightbox" hidden>
-    <button id="lightbox-close" class="lightbox-close" title="Schließen (Esc)">✕</button>
-    <img id="lightbox-img" alt="" />
+    <button id="lightbox-close" class="lightbox-close" title="Schließen (Esc)" aria-label="Schließen">✕</button>
+    <button id="lb-prev" class="lb-nav prev" title="Vorheriges (←)" aria-label="Vorheriges Bild">‹</button>
+    <button id="lb-next" class="lb-nav next" title="Nächstes (→)" aria-label="Nächstes Bild">›</button>
+    <figure class="lb-figure">
+      <img id="lightbox-img" alt="" />
+      <figcaption class="lb-meta">
+        <div class="lb-meta-head">
+          <span id="lb-provider" class="lb-badge"></span>
+          <span id="lb-index" class="muted small"></span>
+          <span class="grow"></span>
+          <button id="lb-fav" class="ghost sm">☆ Favorit</button>
+          <a id="lb-download" class="ghost sm" download>⬇ Herunterladen</a>
+          <button id="lb-asset" class="ghost sm" title="Neues Set mit diesem Prompt & Anbieter">＋ Als neues Set</button>
+        </div>
+        <p id="lb-prompt" class="lb-prompt muted"></p>
+      </figcaption>
+    </figure>
   </div>
 
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

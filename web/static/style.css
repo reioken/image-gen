@@ -359,14 +359,41 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
   opacity: 0; transition: opacity .2s ease;
 }
 .lightbox.show { opacity: 1; }
-.lightbox img {
-  max-width: 92vw; max-height: 88vh; border-radius: 14px; border: 1px solid var(--border-strong);
-  box-shadow: 0 30px 90px rgba(0,0,0,.6); animation: pop .28s cubic-bezier(.2,.8,.2,1);
+.lb-figure {
+  margin: 0; display: flex; flex-direction: column; align-items: center; gap: .7rem;
+  max-width: 94vw; max-height: 92vh;
 }
+.lightbox img {
+  max-width: 94vw; max-height: 74vh; border-radius: 14px; border: 1px solid var(--border-strong);
+  box-shadow: 0 30px 90px rgba(0,0,0,.6); animation: pop .28s cubic-bezier(.2,.8,.2,1); object-fit: contain;
+}
+.lb-meta {
+  width: min(720px, 94vw); background: var(--panel-strong); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: .7rem .85rem;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.lb-meta-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.lb-badge { font-size: .78rem; font-weight: 700; color: var(--text); background: var(--grad-soft);
+  border: 1px solid var(--border-strong); padding: .2rem .6rem; border-radius: 999px; }
+.lb-prompt { margin: .55rem 0 0; font-size: .84rem; line-height: 1.5; max-height: 12vh; overflow: auto; }
+a#lb-download { text-decoration: none; display: inline-flex; align-items: center; }
+#lb-fav.active { color: #ffd76a; border-color: rgba(255,215,106,.5); background: rgba(255,215,106,.12); }
+.lb-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; padding: 0;
+  border-radius: 50%; font-size: 1.6rem; line-height: 1; background: var(--panel-strong);
+  border: 1px solid var(--border-strong); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); z-index: 2;
+}
+.lb-nav.prev { left: 1rem; } .lb-nav.next { right: 1rem; }
+.lb-nav:disabled { opacity: .3; }
 .lightbox-close {
-  position: absolute; top: 1.1rem; right: 1.2rem; width: 42px; height: 42px; padding: 0;
+  position: absolute; top: 1.1rem; right: 1.2rem; width: 42px; height: 42px; padding: 0; z-index: 2;
   border-radius: 50%; font-size: 1.1rem; background: var(--panel-strong); border: 1px solid var(--border-strong);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+@media (max-width: 680px) {
+  .lb-nav { width: 40px; height: 40px; font-size: 1.3rem; }
+  .lb-nav.prev { left: .4rem; } .lb-nav.next { right: .4rem; }
+  .lightbox img { max-height: 64vh; }
 }
 
 /* gallery */

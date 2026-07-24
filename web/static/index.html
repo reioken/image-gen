@@ -120,6 +120,7 @@
           <h2>Ergebnisse</h2>
           <span id="results-count" class="tag" hidden>0 Bilder</span>
           <span class="grow"></span>
+          <button id="open-editor" class="primary sm" hidden>🎨 Design-Editor</button>
           <button id="filter-fav" class="ghost sm" hidden aria-pressed="false">★ Nur Favoriten</button>
           <button id="download-fav" class="ghost sm" hidden>⬇ Favoriten</button>
           <button id="download-zip" class="ghost sm" hidden>⬇ Alle als ZIP</button>
@@ -324,6 +325,50 @@ PROMPTS:
     </figure>
   </div>
 
-  <script src="app.js?v=18"></script>
+  <!-- Design editor (fullscreen overlay) -->
+  <div id="editor" class="editor" hidden>
+    <div class="ed-top">
+      <span class="brand-mark" role="img" aria-label="Logo"></span>
+      <strong class="ed-title">Design-Editor</strong>
+      <span class="ed-hint muted">Layout gilt für alle Bilder · Text pro Bild</span>
+      <span class="grow"></span>
+      <button id="ed-lang" class="ghost sm" title="Sprachen & Export (Phase 2)">🌍 Sprachen &amp; Export</button>
+      <button id="ed-close" class="ghost sm">✕ Schließen</button>
+    </div>
+    <div class="ed-body">
+      <!-- left: add layers -->
+      <aside class="ed-tools">
+        <div class="ed-group-h">Ebene hinzufügen</div>
+        <button id="ed-add-container" class="ghost">▢ Container</button>
+        <button id="ed-add-text" class="ghost">T Text</button>
+        <label class="ghost ed-logo-btn">🖼 Logo<input id="ed-logo-input" type="file" accept="image/png,image/svg+xml,image/webp,image/jpeg" hidden></label>
+        <div class="ed-group-h">Ebene</div>
+        <button id="ed-dup" class="ghost sm">⧉ Duplizieren</button>
+        <button id="ed-front" class="ghost sm">⤒ Nach vorn</button>
+        <button id="ed-back" class="ghost sm">⤓ Nach hinten</button>
+        <button id="ed-del" class="ghost sm">🗑 Löschen</button>
+      </aside>
+
+      <!-- center: canvas -->
+      <div class="ed-stage">
+        <div class="ed-canvas-wrap"><canvas id="edit-canvas"></canvas></div>
+        <div id="ed-filmstrip" class="ed-filmstrip"></div>
+      </div>
+
+      <!-- right: properties + per-image -->
+      <aside class="ed-props">
+        <div id="ed-prop-empty" class="muted small">Wähle ein Element auf dem Bild, um es zu bearbeiten.</div>
+        <div id="ed-prop-panel" hidden></div>
+        <div class="ed-group-h">Dieses Bild</div>
+        <label class="small">Produktart <input id="ed-meta-art" placeholder="z.B. Flasche"></label>
+        <label class="small">Name <input id="ed-meta-name" placeholder="z.B. Aura 50ml"></label>
+        <label class="small">Farbe <input id="ed-meta-color" placeholder="z.B. Amber"></label>
+      </aside>
+    </div>
+  </div>
+
+  <script src="vendor/fabric.min.js?v=1"></script>
+  <script src="app.js?v=19"></script>
+  <script src="editor.js?v=1"></script>
 </body>
 </html>

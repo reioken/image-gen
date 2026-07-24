@@ -19,8 +19,10 @@ services:
   - type: web
     name: product-image-batch
     runtime: python
-    plan: free               # kostenlos (schläft nach ~15 min Inaktivität, Kaltstart ~30–60s)
-                             # -> für "immer an" auf "starter" (kostenpflichtig) ändern
+    plan: starter            # kostenpflichtig: immer an (kein Schlafen) + erlaubt
+                             # einen persistenten Datenträger (siehe disk: unten).
+                             # Für kostenlos zurück auf "free" — dann aber KEIN disk
+                             # und Projekte/Ergebnisse sind nach Neustart weg.
     region: frankfurt        # closest to Mannheim/Heidelberg
     buildCommand: pip install -r requirements.txt -r requirements-web.txt
     startCommand: uvicorn web.server:app --host 0.0.0.0 --port $PORT
@@ -46,12 +48,14 @@ services:
         sync: false
       - key: PIB_OPENAI_RPM
         sync: false
-      # --- optional: where saved projects (cross-device workspaces) live ---
-      # Point this at a path on a persistent disk (see the disk block below) so
-      # saved projects survive restarts. Without a disk they are ephemeral,
-      # just like outputs/. Empty = <app>/workspaces.
+      # --- persistent storage (on the disk mounted at /data below) ---
+      # Saved projects and generated images live on the persistent disk, so they
+      # survive restarts/redeploys. On the free plan (no disk) remove these two
+      # and both fall back to the ephemeral container filesystem.
       - key: WEB_WORKSPACES_DIR
-        sync: false
+        value: /data/workspaces
+      - key: WEB_OUTPUT_DIR
+        value: /data/outputs
       # --- provider keys: fill in only the ones you use; leave others blank ---
       - key: OPENAI_API_KEY
         sync: false
@@ -71,10 +75,12 @@ services:
         sync: false
       - key: LEONARDO_API_KEY
         sync: false
-    # Auf dem Free-Plan gibt es keinen persistenten Datenträger — generierte Bilder
-    # liegen nur temporär im Container. Für dauerhafte Ablage auf "starter" upgraden
-    # und diesen Block einkommentieren:
-    # disk:
-    #   name: outputs
-    #   mountPath: /opt/render/project/src/outputs
-    #   sizeGB: 1
+    # Persistenter Datenträger — gemountet unter /data. Hier liegen die
+    # gespeicherten Projekte (/data/workspaces) und die erzeugten Bilder
+    # (/data/outputs), siehe WEB_WORKSPACES_DIR / WEB_OUTPUT_DIR oben. So bleiben
+    # beide über Neustarts und Deploys hinweg erhalten. sizeGB bei Bedarf erhöhen
+    # (Bilder summieren sich). Erfordert einen kostenpflichtigen Plan (starter).
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 2

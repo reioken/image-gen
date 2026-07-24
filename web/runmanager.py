@@ -72,7 +72,9 @@ class RunManager:
         self.config.apply_settings(load_settings())
         apply_env_overrides(self.config)
         self.rewriter = PromptRewriter(load_rewrite_config())
-        self.output_root = output_root or (Path.cwd() / "outputs")
+        self.output_root = output_root or Path(
+            os.environ.get("WEB_OUTPUT_DIR", "").strip() or (Path.cwd() / "outputs")
+        )
         self.output_root.mkdir(parents=True, exist_ok=True)
         self.budget = BudgetManager(
             max_total_cost=_env_float("WEB_BUDGET_CAP_USD"),

@@ -201,6 +201,8 @@ main { max-width: 1040px; margin: 0 auto; padding: .4rem 1rem 3rem; display: gri
 }
 .row { display: flex; gap: .5rem; margin-top: .6rem; flex-wrap: wrap; }
 .actions { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+.master-templates { align-items: center; }
+.master-templates .tmpl-label { margin-right: .1rem; }
 
 /* overall run progress */
 .overall { display: flex; align-items: center; gap: .6rem; flex: 1 1 220px; min-width: 180px; }
@@ -440,6 +442,15 @@ details[open] > summary { margin-bottom: .4rem; }
   .gallery, .result-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   /* the overall progress bar drops onto its own full-width line under the buttons */
   .actions .overall { flex-basis: 100%; }
+  /* keep Start/Stop within thumb reach: pin the action bar to the bottom */
+  .actions {
+    position: sticky; bottom: 0; z-index: 15;
+    margin-left: -.7rem; margin-right: -.7rem;
+    border-radius: 14px 14px 0 0; background: var(--bg-2);
+    padding-bottom: max(.9rem, env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 24px rgba(0,0,0,.28);
+  }
+  .actions #start { flex: 1 1 auto; }
 }
 @media (max-width: 480px) {
   .topbar strong { display: none; }        /* keep just the logo + actions */

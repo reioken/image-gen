@@ -7,6 +7,7 @@ need them off the event loop should wrap them in ``asyncio.to_thread``.
 from __future__ import annotations
 
 import base64
+import functools
 import mimetypes
 from pathlib import Path
 
@@ -84,19 +85,49 @@ def preflight_mask(mask: Path, first_reference: Path | None) -> None:
             )
 
 
+# --- cached reads/encodes -------------------------------------------------
+# Reference images are copied once into a run and then reused by every task
+# (each image-per-prompt is its own task). Reading and base64-encoding the same
+# multi-MB file once per task is pure repeated work on the event loop, so cache
+# by (path, mtime, size): stable within a run, auto-invalidated if the file
+# changes on disk. The cache is bounded so a long-running server stays flat.
+
+@functools.lru_cache(maxsize=64)
+def _read_bytes_cached(path_str: str, _mtime_ns: int, _size: int) -> bytes:
+    return Path(path_str).read_bytes()
+
+
+@functools.lru_cache(maxsize=64)
+def _data_url_cached(path_str: str, mime: str, _mtime_ns: int, _size: int) -> str:
+    data = Path(path_str).read_bytes()
+    return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+
+
+def _stat_key(path: Path) -> tuple[str, int, int]:
+    st = path.stat()
+    return (str(path), st.st_mtime_ns, st.st_size)
+
+
+def read_bytes_cached(path: Path) -> bytes:
+    """Read a (stable) image file, caching by path+mtime+size across tasks."""
+    p = Path(path)
+    key, mtime, size = _stat_key(p)
+    return _read_bytes_cached(key, mtime, size)
+
+
 def to_data_url(path: Path) -> str:
-    """Return a ``data:<mime>;base64,<...>`` URL for a local image."""
-    mime = MIME_BY_SUFFIX.get(path.suffix.lower())
+    """Return a ``data:<mime>;base64,<...>`` URL for a local image (cached)."""
+    p = Path(path)
+    mime = MIME_BY_SUFFIX.get(p.suffix.lower())
     if mime is None:
-        mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-    data = path.read_bytes()
-    b64 = base64.b64encode(data).decode("ascii")
-    return f"data:{mime};base64,{b64}"
+        mime = mimetypes.guess_type(str(p))[0] or "application/octet-stream"
+    key, mtime, size = _stat_key(p)
+    return _data_url_cached(key, mime, mtime, size)
 
 
 def to_base64(path: Path) -> str:
-    """Return the raw base64 string (no data-URL prefix)."""
-    return base64.b64encode(path.read_bytes()).decode("ascii")
+    """Return the raw base64 string (no data-URL prefix), cached read."""
+    return base64.b64encode(read_bytes_cached(path)).decode("ascii")
 
 
 def convert_format(src: Path, dst: Path, fmt: str | None = None) -> Path:

@@ -40,7 +40,10 @@ SETTING & STYLE:
 - Consistent camera height, distance and framing across shots unless a prompt explicitly says otherwise.
 
 QUALITY:
-- High resolution, crisp detail. No artifacts, no watermarks, no extra text, no warped geometry, no distortions."""
+- High resolution, crisp detail. No artifacts, no warped geometry, no distortions.
+
+NO ADDED TEXT:
+- Do not add any text, captions, headlines, words, letters, watermarks, signatures, stickers or extra logos anywhere in the image; keep the background and scene free of writing. Only text that is already physically printed on the product stays — never add, translate or invent text."""
 
 
 @dataclass

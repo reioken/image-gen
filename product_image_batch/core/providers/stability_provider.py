@@ -17,6 +17,7 @@ import httpx
 
 from ..models import CostEstimate, GenerationTask, ProviderJob, ProviderResult, RemoteImage
 from .base import BaseProvider
+from ..utils import images as imgutil
 
 API_BASE = "https://api.stability.ai/v2beta/stable-image/generate"
 
@@ -73,10 +74,10 @@ class StabilityProvider(BaseProvider):
 
         if task.reference_images:
             ref = Path(task.reference_images[0])
-            files["image"] = (ref.name, ref.read_bytes(), _mime(ref))
+            files["image"] = (ref.name, imgutil.read_bytes_cached(ref), _mime(ref))
         if task.mask_path is not None:
             mp = Path(task.mask_path)
-            files["mask"] = (mp.name, mp.read_bytes(), "image/png")
+            files["mask"] = (mp.name, imgutil.read_bytes_cached(mp), "image/png")
         # multipart requires at least one file part; ensure form is multipart.
         for k, v in task.provider_params.items():
             if k != "strength":

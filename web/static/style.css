@@ -424,6 +424,7 @@ a#lb-download { text-decoration: none; display: inline-flex; align-items: center
 .confirm-text { color: var(--text); line-height: 1.6; margin: .2rem 0 .4rem; }
 .confirm-text .muted { font-size: .82rem; }
 .danger { color: var(--warn); font-weight: 600; }
+.danger-btn { color: var(--error); border-color: rgba(251,113,133,.5); background: rgba(251,113,133,.1); }
 
 /* live scope line + favourite star + filter */
 .scope { white-space: nowrap; }

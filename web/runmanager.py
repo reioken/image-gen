@@ -163,6 +163,11 @@ class RunManager:
 
         state = RunState(run_id=run_id, out_dir=out_dir, total=len(tasks))
         self._runs[run_id] = state
+        # Keep memory bounded on a long-running server: drop the oldest run
+        # handles (their images stay on disk; only the in-memory handle is freed).
+        if len(self._runs) > 50:
+            for old in sorted(self._runs)[:-50]:
+                self._runs.pop(old, None)
 
         if not tasks:
             state.done = True

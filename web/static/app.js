@@ -491,6 +491,9 @@ function streamEvents(runId, total) {
       $("#start").disabled = false; $("#stop").disabled = true;
       const kind = ev.failed ? "warn" : "success";
       toast(`Fertig — ${ev.succeeded} ok${ev.failed ? `, ${ev.failed} Fehler` : ""}${ev.skipped ? `, ${ev.skipped} übersprungen` : ""}`, kind, 6000);
+      if (!document.querySelector(".gallery img")) {
+        $("#gallery").innerHTML = '<p class="empty muted">Keine Bilder erzeugt — prüfe Provider-Key & Prompt.</p>';
+      }
       EVT.close(); EVT = null;
     }
     else if (ev.type === "error") { setStatus("Fehler: " + ev.message); toast(ev.message, "error"); }

@@ -350,3 +350,8 @@ details[open] > summary { margin-bottom: .4rem; }
   .agent-params { grid-template-columns: 1fr 1fr; }
   .topbar { top: 0; margin: 0; border-radius: 0; }
 }
+@media (max-width: 480px) {
+  .topbar strong { display: none; }        /* keep just the logo + actions */
+  .badge { font-size: .72rem; padding: .3rem .55rem; }
+  .topbar { gap: .5rem; }
+}

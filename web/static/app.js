@@ -523,12 +523,52 @@ async function copyTemplate() {
   }
 }
 
-// --- lightbox ------------------------------------------------------------
-function openLightbox(url) {
+// --- lightbox (with metadata, navigation, actions) -----------------------
+let LB_ITEMS = [];
+let LB_INDEX = -1;
+
+function openLightboxFor(anchor) {
+  const onlyFav = $("#gallery").classList.contains("only-fav");
+  LB_ITEMS = [...document.querySelectorAll("#gallery .result-item")]
+    .filter(a => !onlyFav || a.classList.contains("is-fav"));
+  LB_INDEX = LB_ITEMS.indexOf(anchor);
+  if (LB_INDEX < 0) { LB_ITEMS = [anchor]; LB_INDEX = 0; }
+  renderLightbox();
   const lb = $("#lightbox");
-  $("#lightbox-img").src = url;
   lb.hidden = false;
   requestAnimationFrame(() => lb.classList.add("show"));
+}
+function renderLightbox() {
+  const a = LB_ITEMS[LB_INDEX];
+  if (!a) return;
+  $("#lightbox-img").src = a.dataset.full;
+  $("#lightbox-img").alt = `${a.dataset.provider || ""} ${a.dataset.promptId || ""}`.trim();
+  $("#lb-provider").textContent = [a.dataset.provider, a.dataset.model].filter(Boolean).join(" · ") || "—";
+  $("#lb-index").textContent = LB_ITEMS.length > 1 ? `${LB_INDEX + 1} / ${LB_ITEMS.length}` : "";
+  $("#lb-prompt").textContent = a.dataset.prompt || "";
+  $("#lb-download").href = a.dataset.full;
+  const isFav = a.classList.contains("is-fav");
+  const favBtn = $("#lb-fav");
+  favBtn.classList.toggle("active", isFav);
+  favBtn.textContent = isFav ? "★ Favorit" : "☆ Favorit";
+  $("#lb-prev").disabled = LB_INDEX <= 0;
+  $("#lb-next").disabled = LB_INDEX >= LB_ITEMS.length - 1;
+}
+function lbNav(delta) {
+  const n = LB_INDEX + delta;
+  if (n >= 0 && n < LB_ITEMS.length) { LB_INDEX = n; renderLightbox(); }
+}
+function lbToggleFav() {
+  const a = LB_ITEMS[LB_INDEX];
+  if (a) { toggleFavorite(a.dataset.file, a); renderLightbox(); }
+}
+function lbAsNewSet() {
+  const a = LB_ITEMS[LB_INDEX];
+  if (!a) return;
+  addAgent({ provider: a.dataset.provider, prompt: a.dataset.prompt || "" });
+  toast("Als neues Set übernommen — unten anpassen & starten", "success");
+  closeLightbox();
+  document.querySelector("#agents .agent:last-child")?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 function closeLightbox() {
   const lb = $("#lightbox");
@@ -636,7 +676,7 @@ function streamEvents(runId, total) {
     }
     else if (ev.type === "image") {
       const n = ev.images.length;
-      for (const img of ev.images) addResult(runId, img.file, ev.prompt_id, ev.provider);
+      for (const img of ev.images) addResult(runId, img.file, ev.prompt_id, ev.provider, ev.model);
       const prog = bumpAgentProgress(ev.prompt_id, n);
       const row = rowForPrompt(ev.prompt_id);
       if (prog && prog.done >= prog.expected) {
@@ -721,18 +761,26 @@ function resultGroup(promptId, provider) {
   return g;
 }
 
-function addResult(runId, filename, promptId, provider) {
+function addResult(runId, filename, promptId, provider, model) {
   const g = resultGroup(promptId, provider);
   const grid = g.querySelector(".result-grid");
   const base = api(`/api/run/${runId}/image/${encodeURIComponent(filename)}?token=${encodeURIComponent(store.token)}`);
   const full = base;
   const thumb = base + "&thumb=1";
+  const row = rowForPrompt(promptId);
+  const promptText = row ? (row.querySelector(".prompt").value || "").trim() : "";
   const a = document.createElement("a");
   a.href = full;
   a.className = "result-item";
+  a.dataset.full = full;
+  a.dataset.file = filename;
+  a.dataset.provider = provider || "";
+  a.dataset.model = model || "";
+  a.dataset.promptId = promptId || "";
+  a.dataset.prompt = promptText;
   if (FAVORITES.has(filename)) a.classList.add("is-fav");
   // Grid shows a lightweight thumbnail; the lightbox opens the full image.
-  a.addEventListener("click", (e) => { e.preventDefault(); openLightbox(full); });
+  a.addEventListener("click", (e) => { e.preventDefault(); openLightboxFor(a); });
   const img = document.createElement("img");
   img.src = thumb; img.loading = "lazy"; img.decoding = "async";
   img.alt = `Ergebnis ${provider || ""} ${promptId || ""}`.trim();
@@ -893,10 +941,27 @@ function wire() {
   $("#settings-cancel").addEventListener("click", closeSettings);
   $("#settings-save").addEventListener("click", saveSettings);
   $("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") closeSettings(); });
-  // lightbox close: button, backdrop click, Esc
+  // lightbox close: button, backdrop click, Esc; navigation + actions
   $("#lightbox-close").addEventListener("click", closeLightbox);
-  $("#lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLightbox(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLightbox(); });
+  $("#lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox" || e.target.classList.contains("lb-figure")) closeLightbox(); });
+  $("#lb-prev").addEventListener("click", () => lbNav(-1));
+  $("#lb-next").addEventListener("click", () => lbNav(1));
+  $("#lb-fav").addEventListener("click", lbToggleFav);
+  $("#lb-asset").addEventListener("click", lbAsNewSet);
+  document.addEventListener("keydown", (e) => {
+    if ($("#lightbox").hidden) return;
+    if (e.key === "Escape") closeLightbox();
+    else if (e.key === "ArrowLeft") lbNav(-1);
+    else if (e.key === "ArrowRight") lbNav(1);
+  });
+  // swipe navigation on touch
+  let _sx = 0, _sy = 0;
+  const lbImg = $("#lightbox-img");
+  lbImg.addEventListener("touchstart", (e) => { _sx = e.touches[0].clientX; _sy = e.touches[0].clientY; }, { passive: true });
+  lbImg.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - _sx, dy = e.changedTouches[0].clientY - _sy;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) lbNav(dx < 0 ? 1 : -1);
+  }, { passive: true });
   $("#reset-master").addEventListener("click", () => $("#master-prompt").value = CONFIG.default_master_prompt || "");
   $("#clear-master").addEventListener("click", () => $("#master-prompt").value = "");
   $("#add-agent").addEventListener("click", () => addAgent());
